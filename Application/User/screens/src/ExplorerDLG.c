@@ -1,6 +1,4 @@
-#include "DIALOG.h"
-#include "LISTVIEW.h"
-#include "storage.h"
+#include "ExplorerDLG.h"
 
 #ifdef _USE_BITMAP_PICTURES
 
@@ -77,7 +75,7 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 #else
 		BUTTON_SetText(hItem, "Select");
 #endif
-		hItem = BUTTON_CreateAsChild(620, 400, 80, 80, pMsg->hWin, ID_DOWNDIRECTORY_BUTTON, WM_CF_SHOW);
+		hItem = BUTTON_CreateAsChild(620, 400, 85, 80, pMsg->hWin, ID_DOWNDIRECTORY_BUTTON, WM_CF_SHOW);
 		BUTTON_SetTextColor(hItem, 0, GUI_WHITE);
 		BUTTON_SetFont(hItem, GUI_FONT_20_1);
 #ifdef _USE_BITMAP_PICTURES
@@ -87,7 +85,7 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 		BUTTON_SetText(hItem, "Go");
 #endif
 		WM_HideWindow(hItem);
-		hItem = BUTTON_CreateAsChild(0, 400, 80, 80, pMsg->hWin, ID_UPDIRECTORY_BUTTON, WM_CF_SHOW);
+		hItem = BUTTON_CreateAsChild(0, 400, 85, 80, pMsg->hWin, ID_UPDIRECTORY_BUTTON, WM_CF_SHOW);
 		BUTTON_SetTextColor(hItem, 0, GUI_WHITE);
 		BUTTON_SetFont(hItem, GUI_FONT_20_1);
 #ifdef _USE_BITMAP_PICTURES
@@ -142,7 +140,7 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 		} else {
 			hItem = CreateMessageBox("No Drive Found!");
 			WaitForDialog(hItem);
-			GUI_EndDialog(pMsg->hWin,0);
+			GUI_EndDialog(pMsg->hWin, RET_FAIL);
 		}
 
 		break;
@@ -182,9 +180,9 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 					loadFileList(&hListView, path);
 					TEXT_SetText(hItem, path);
 				} else {
-					currentDriveSelection = sel;
-					LISTVIEW_DeleteAllRows(hListView);
-					TEXT_SetText(hItem, "Drive Not Detected");
+					hItem = CreateMessageBox("Drive Not Detected");
+					WaitForDialog(hItem);
+					DROPDOWN_SetSel(pMsg->hWinSrc, currentDriveSelection);
 				}
 
 				hItem = WM_GetDialogItem(pMsg->hWin, ID_DOWNDIRECTORY_BUTTON);
@@ -192,22 +190,27 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 				break;
 			}
 			break;
+		case ID_DOWNDIRECTORY_BUTTON:
+			switch (pMsg->Data.v) {
+			case WM_NOTIFICATION_RELEASED:
+				hListView = WM_GetDialogItem(pMsg->hWin, ID_FILELIST_LISTVIEW);
+				LISTVIEW_GetItemText(hListView, 0, currentFileSelection, fileInfoInt->name, FILE_NAME_SIZE);
+
+				char currentPath[PATH_MAX_SIZE];
+				memset(currentPath, 0, PATH_MAX_SIZE);
+				hItem = WM_GetDialogItem(pMsg->hWin, ID_TEXT_PATH);
+				TEXT_GetText(hItem, currentPath, PATH_MAX_SIZE);
+
+				LISTVIEW_DeleteAllRows(hListView);
+				sprintf(currentPath, "%s%s/", currentPath, fileInfoInt->name);
+				loadFileList(&hListView, currentPath);
+				TEXT_SetText(hItem, currentPath);
+				currentFileSelection = -1;
+				break;
+			}
+			break;
 		case ID_SELECTFILE_BUTTON:
 			switch (pMsg->Data.v) {
-			case WM_NOTIFICATION_CLICKED:
-//#ifdef _USE_BITMAP_PICTURES
-//				hListView = WM_GetDialogItem(pMsg->hWin, ID_FILELIST_LISTVIEW);
-//				char isFile[FILE_EXT_SIZE];
-//				LISTVIEW_GetItemText(hListView, 1, currentFileSelection, isFile, FILE_EXT_SIZE);
-//				if (!isFile[0]) {
-//					BUTTON_SetBitmap(pMsg->hWinSrc, BUTTON_BI_UNPRESSED, &bmdownRelease);
-//					BUTTON_SetBitmap(pMsg->hWinSrc, BUTTON_BI_PRESSED, &bmdownPush);
-//				} else {
-//					BUTTON_SetBitmap(pMsg->hWinSrc, BUTTON_BI_UNPRESSED, &bmselectRelease);
-//					BUTTON_SetBitmap(pMsg->hWinSrc, BUTTON_BI_PRESSED, &bmselectPush);
-//				}
-//#endif
-				break;
 			case WM_NOTIFICATION_RELEASED:
 				if (currentFileSelection >= 0) {
 					hListView = WM_GetDialogItem(pMsg->hWin, ID_FILELIST_LISTVIEW);
@@ -217,21 +220,16 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 					memset(currentPath, 0, PATH_MAX_SIZE);
 					hItem = WM_GetDialogItem(pMsg->hWin, ID_TEXT_PATH);
 					TEXT_GetText(hItem, currentPath, PATH_MAX_SIZE);
-					if (fileInfoInt->ext[0] == '\0') {
-						LISTVIEW_DeleteAllRows(hListView);
-						sprintf(currentPath, "%s%s/", currentPath, fileInfoInt->name);
-						loadFileList(&hListView, currentPath);
-						TEXT_SetText(hItem, currentPath);
-						currentFileSelection = -1;
-					} else {
-						LISTVIEW_GetItemText(hListView, 2, currentFileSelection, fileInfoInt->size, FILE_NAME_SIZE);
-						LISTVIEW_GetItemText(hListView, 3, currentFileSelection, fileInfoInt->attrib, FILE_EXT_SIZE);
-						strcpy(fileInfoInt->root, currentPath);
-						initRunTestWindow(*fileInfoInt);
-					}
-				} else {
-					GUI_EndDialog(pMsg->hWin, 0);
+
+					LISTVIEW_GetItemText(hListView, 2, currentFileSelection, fileInfoInt->size, FILE_NAME_SIZE);
+					LISTVIEW_GetItemText(hListView, 3, currentFileSelection, fileInfoInt->attrib, 6);
+					strcpy(fileInfoInt->root, currentPath);
 				}
+				currentDriveSelection = -1;
+				int ret = RET_IS_DIR;
+				if (fileInfoInt->attrib[4] == 'A')
+					ret = RET_IS_FILE;
+				GUI_EndDialog(pMsg->hWin, ret);
 				break;
 			}
 			break;
@@ -259,7 +257,7 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 			switch (pMsg->Data.v) {
 			case WM_NOTIFICATION_RELEASED:
 				currentDriveSelection = -1;
-				GUI_EndDialog(pMsg->hWin, 0);
+				GUI_EndDialog(pMsg->hWin, RET_FAIL);
 				break;
 			}
 		}
@@ -270,8 +268,9 @@ static void _cbDialog(WM_MESSAGE * pMsg)
 	}
 }
 
-void CreateExplorer(void)
+WM_HWIN CreateExplorer(FileInfo *fileInfo)
 {
+	fileInfoInt = fileInfo;
 	currentFileSelection = -1;
-	GUI_CreateDialogBox(_aDialogCreate, GUI_COUNTOF(_aDialogCreate), _cbDialog, WM_HBKWIN, 0, 0);
+	return GUI_CreateDialogBox(_aDialogCreate, GUI_COUNTOF(_aDialogCreate), _cbDialog, WM_HBKWIN, 0, 0);
 }

@@ -79,7 +79,7 @@ static void windowCallback(WM_MESSAGE * pMsg)
 		case ID_RUNLOG_BUTTON:
 			switch (pMsg->Data.v) {
 			case WM_NOTIFICATION_RELEASED:
-				CreateExplorer();
+				runTestWindow();
 				break;
 			}
 			break;
@@ -93,7 +93,7 @@ static void windowCallback(WM_MESSAGE * pMsg)
 		case ID_RUNPANELS_BUTTON:
 			switch (pMsg->Data.v) {
 			case WM_NOTIFICATION_RELEASED:
-				openPanels(pMsg->hWin);
+				openPanels();
 				break;
 			}
 			break;

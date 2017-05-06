@@ -1,7 +1,11 @@
 #ifndef __K_BSP_H
 #define __K_BSP_H
 
-#include "main.h"
+#include "stm32f7xx_hal.h"
+#include "stm32f769i_discovery.h"
+#include "stm32f769i_discovery_ts.h"
+#include "stm32f769i_discovery_qspi.h"
+#include "GUI.h"
 
 // enum to handle the state of the data transferred for storage devices
 enum {

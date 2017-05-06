@@ -1,4 +1,3 @@
-/* Includes ------------------------------------------------------------------*/
 #include "bspManager.h"
 
 static DMA_HandleTypeDef hdma_tx;

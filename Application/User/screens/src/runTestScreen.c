@@ -1,5 +1,4 @@
-#include "main.h"
-#include "canData.h"
+#include "runTestScreen.h"
 
 #define MAX_LINE 100
 
@@ -195,9 +194,16 @@ static void windowCallback(WM_MESSAGE * pMsg) {
 	}
 }
 
-void initRunTestWindow(FileInfo fileInfo){
-	fileInfoInt = fileInfo;
+void runTestWindow(void)
+{
+	int res = RET_IS_DIR;
+	while (res == RET_IS_DIR) {
+		res = WaitForDialog(CreateExplorer(&fileInfoInt));
 
-	window = GUI_CreateDialogBox(_runTestWindow, GUI_COUNTOF(_runTestWindow), windowCallback, WM_HBKWIN, 0, 0);
-	CleanDisplay(LCD_FB_START_ADDRESS);
+		if (res == RET_IS_FILE) {
+			window = GUI_CreateDialogBox(_runTestWindow, GUI_COUNTOF(_runTestWindow), windowCallback, WM_HBKWIN, 0, 0);
+		} else if (res == RET_IS_DIR) {
+			WaitForDialog(CreateMessageBox("Please select a CAN log"));
+		}
+	}
 }

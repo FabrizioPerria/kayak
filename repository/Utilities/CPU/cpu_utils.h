@@ -44,7 +44,15 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
+
+#include "stm32f7xx_hal.h"
+
+#include "cmsis_os.h"
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/

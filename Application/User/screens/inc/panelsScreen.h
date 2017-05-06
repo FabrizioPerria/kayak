@@ -1,0 +1,9 @@
+#ifndef APPLICATION_USER_SCREENS_INC_PANELSSCREEN_H_
+#define APPLICATION_USER_SCREENS_INC_PANELSSCREEN_H_
+
+#include "DIALOG.h"
+#include "stm32f7xx_hal.h"
+#include "stm32f7xx_it.h"
+
+
+#endif /* APPLICATION_USER_SCREENS_INC_PANELSSCREEN_H_ */

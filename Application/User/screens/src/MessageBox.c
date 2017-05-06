@@ -1,8 +1,8 @@
-#include "DIALOG.h"
+#include "MessageBox.h"
 
-#define ID_FRAMEWIN_MB  (GUI_ID_USER + 0x01)
-#define ID_BUTTON_OK  (GUI_ID_USER + 0x02)
-#define ID_TEXT_MESSAGE  (GUI_ID_USER + 0x03)
+#define ID_FRAMEWIN_MB  (GUI_ID_USER + 0x00)
+#define ID_BUTTON_OK  (GUI_ID_USER + 0x01)
+#define ID_TEXT_MESSAGE  (GUI_ID_USER + 0x02)
 
 static const GUI_WIDGET_CREATE_INFO _aDialogCreate[] = {
 	{ FRAMEWIN_CreateIndirect, "Framewin", ID_FRAMEWIN_MB, 234, 160, 328, 159, 0, 0x64, 0 },

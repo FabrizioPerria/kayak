@@ -99,6 +99,7 @@ const char* StorageGetPath(uint8_t unit){
 }
 
 uint8_t StorageGetStatus (uint8_t unit){
+	osDelay(20);
 	if(unit == SDCARD_DISK_UNIT)
 		StorageStatus[unit] = BSP_SD_IsDetected();
 	return StorageStatus[unit];
