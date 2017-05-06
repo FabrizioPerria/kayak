@@ -9,14 +9,14 @@
 #include "main.h"   
 
    /* Exported constants --------------------------------------------------------*/
-#define FILE_LIST_DEPDTH                     20
-#define FILE_NAME_SIZE      	             64
-#define FILE_EXT_SIZE						  4
-#define FILE_ATTRIB_SIZE					 10
-#define FILE_LENGTH_SIZE					  8
-#define PATH_MAX_SIZE						256
-#define FILE_MAX_LEVEL                        3
-#define FILE_MAX_EXT_SIZE                     3
+#define FILE_LIST_DEPDTH                     	20
+#define FILE_NAME_SIZE      	             	64
+#define FILE_EXT_SIZE						  	4
+#define FILE_ATTRIB_SIZE					 	10
+#define FILE_LENGTH_SIZE					  	8
+#define PATH_MAX_SIZE						 	60
+#define FILE_MAX_LEVEL                        	3
+#define FILE_MAX_EXT_SIZE                     	3
    
 #define FILETYPE_DIR                             0
 #define FILETYPE_FILE                            1

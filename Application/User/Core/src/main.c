@@ -1,18 +1,18 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
 #define USE_BANDING_MEMDEV
 static void SystemClock_Config(void);
 static void MainThread(void);
 static void CPU_CACHE_Enable(void);
 static void setupTheme(void);
 
-static osTimerId lcd_timer;
-
 #if (configAPPLICATION_ALLOCATED_HEAP == 1)
 	uint8_t  ucHeap[configTOTAL_HEAP_SIZE];
 #endif
 
-int main(void){
+int main(void)
+{
 	/* Configure the MPU attributes as Write Through */
 	MPU_Config();
 
@@ -36,9 +36,8 @@ int main(void){
 	bspManagerInit();
 
 	/* Create GUI task */
-	xTaskGenericCreate(MainThread, "MainThread", 1024, 0, osPriorityNormal - osPriorityIdle, NULL, NULL, NULL);
-//	osThreadDef(MainThread, MainThread, osPriorityNormal, 0, 1024);
-//	osThreadCreate (osThread(MainThread), NULL);
+	osThreadDef(MainThread, MainThread, osPriorityNormal, 0, 1024);
+	osThreadCreate (osThread(MainThread), NULL);
 	/* Initialize GUI */
 	GUI_Init();
 
@@ -57,27 +56,29 @@ int main(void){
 	ErrorHandler();
 }
 
-static void MainThread(void){
+static void MainThread(void)
+{
 	/* Initialize Storage Units */
 	StorageInit();
 
 	/* Create Touch screen Timer */
-	lcd_timer = xTimerCreate((const char *)"", 1, 1, NULL, (TaskFunction_t)touchUpdate);
-
+	osTimerDef(touchUpdate, touchUpdate);
+	osTimerId timer = osTimerCreate(osTimer(touchUpdate), osTimerPeriodic, NULL);
 	/* Start the TS Timer */
-	osTimerStart(lcd_timer, 20);
+	osTimerStart(timer, 20);
 
 	/* Show the main menu */
 	initMainWindow();
 
 	/* Gui background Task */
-	while(1) {
+	while (1) {
 		GUI_Exec(); /* Do the background work ... Update windows etc.) */
 		osDelay(10);
 	}
 }
 
-static void setupTheme(void){
+static void setupTheme(void)
+{
 	GUI_SetDefaultFont(&GUI_Font24_ASCII);
 
 	BUTTON_SetDefaultSkin(BUTTON_SKIN_FLEX);
@@ -95,14 +96,14 @@ static void setupTheme(void){
 	FRAMEWIN_SetDefaultBarColor(FRAMEWIN_CI_ACTIVE, GUI_LIGHTBLUE);
 	FRAMEWIN_SetDefaultFont(&GUI_Font32_ASCII);
 	FRAMEWIN_SetDefaultClientColor(GUI_WHITE);
-	FRAMEWIN_SetDefaultTitleHeight(SCREEN_HEIGHT / 13);
+	FRAMEWIN_SetDefaultTitleHeight(37);
 
 	WINDOW_SetDefaultBkColor(GUI_WHITE);
 
 	LISTVIEW_SetDefaultGridColor(GUI_WHITE);
 	LISTVIEW_SetDefaultFont(&GUI_Font20_ASCII);
 
-	SCROLLBAR_SetDefaultWidth(SCREEN_WIDTH / 22);
+	SCROLLBAR_SetDefaultWidth(36);
 
 	HEADER_SetDefaultBkColor(GUI_LIGHTBLUE);
 	HEADER_SetDefaultTextColor(GUI_WHITE);
@@ -136,7 +137,8 @@ static void setupTheme(void){
 * @param  None
 * @retval None
 */
-void SystemClock_Config(void){
+void SystemClock_Config(void)
+{
 	RCC_ClkInitTypeDef RCC_ClkInitStruct;
 	RCC_OscInitTypeDef RCC_OscInitStruct;
 	HAL_StatusTypeDef ret = HAL_OK;
@@ -159,7 +161,11 @@ void SystemClock_Config(void){
 
 	/* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
 	 clocks dividers */
-	RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+	RCC_ClkInitStruct.ClockType = (	RCC_CLOCKTYPE_SYSCLK |
+									RCC_CLOCKTYPE_HCLK |
+									RCC_CLOCKTYPE_PCLK1 |
+									RCC_CLOCKTYPE_PCLK2);
+
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
@@ -168,15 +174,17 @@ void SystemClock_Config(void){
 }
 
 
-void HAL_Delay (__IO uint32_t Delay){
-	while(Delay){
-		if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk){
+void HAL_Delay (__IO uint32_t Delay)
+{
+	while (Delay) {
+		if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {
 			Delay--;
 		}
 	}
 }
 
-static void CPU_CACHE_Enable(void){
+static void CPU_CACHE_Enable(void)
+{
 	/* Invalidate I-Cache : ICIALLU register*/
 	SCB_InvalidateICache();
 
@@ -194,10 +202,11 @@ static void CPU_CACHE_Enable(void){
 	SCB_EnableDCache();
 }
 
-void CleanDisplay (uint32_t address){
+void CleanDisplay (uint32_t address)
+{
 	/* Set up mode */
-	DMA2D->CR			= 0x00030000UL | (1 << 9);
-	DMA2D->OCOLR	 = 0x00;
+	DMA2D->CR		= 0x00030000UL | (1 << 9);
+	DMA2D->OCOLR	= 0x00;
 
 	/* Set up pointers */
 	DMA2D->OMAR		= address;
@@ -217,23 +226,25 @@ void CleanDisplay (uint32_t address){
 	while (DMA2D->CR & DMA2D_CR_START);
 }
 
-int WaitForDialog(WM_HWIN hDialog) {
-  WM_DIALOG_STATUS DialogStatus = {0};
+int WaitForDialog(WM_HWIN hDialog)
+{
+	WM_DIALOG_STATUS DialogStatus = {0};
 
-  GUI_SetDialogStatusPtr(hDialog, &DialogStatus);
-  while (!DialogStatus.Done) {
-    if (!GUI_Exec()) {
-      GUI_Delay(100);
-    }
-  }
-  return DialogStatus.ReturnValue;
+	GUI_SetDialogStatusPtr(hDialog, &DialogStatus);
+	while (!DialogStatus.Done) {
+		if (!GUI_Exec()) {
+			GUI_Delay(100);
+		}
+	}
+	return DialogStatus.ReturnValue;
 }
 
-void ErrorHandler(void){
+void ErrorHandler(void)
+{
 	BSP_LED_On(LED2);
 	BSP_LED_Off(LED1);
 
-	while(1){
+	while (1) {
 		BSP_LED_Toggle(LED1);
 		BSP_LED_Toggle(LED2);
 		HAL_Delay(50);

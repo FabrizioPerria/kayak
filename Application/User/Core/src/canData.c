@@ -3,11 +3,8 @@
 
 #define MAX_LINE 100
 
-int parseLog(FileInfo file, CanNode** head){
-	return parseLogInternal(file,head);
-}
-
-int parseLogInternal(FileInfo file, CanNode** head){
+int parseLogInternal(FileInfo file, CanNode** head)
+{
 	FIL logFile;
 	int lines = 0;
 	int wrongLines = 0;
@@ -19,14 +16,15 @@ int parseLogInternal(FileInfo file, CanNode** head){
 	sprintf(fileName, "%s%s.%s", file.root, file.name, file.ext);
 
 	char buffer[MAX_LINE];
-	if (f_open(&logFile, (TCHAR const*)fileName, FA_READ) == FR_OK){
-		while(!f_eof(&logFile)){
+	if (f_open(&logFile, (TCHAR const*)fileName, FA_READ) == FR_OK) {
+		while (!f_eof(&logFile)) {
 			memset(buffer,0,MAX_LINE);
 			f_gets(buffer, MAX_LINE, &logFile);
-			if(buffer[0] < '0' || buffer[0] > '9'){
+			if (buffer[0] < '0' || buffer[0] > '9') {
 				wrongLines++;
 				continue;
 			}
+
 			long timeStamp = 0;
 			int decimal = 0;
 
@@ -36,11 +34,17 @@ int parseLogInternal(FileInfo file, CanNode** head){
 			char bufferData[24];
 			memset(bufferData, 0, 24);
 
-			int res = sscanf(buffer, "%d.%3d%*d %*d %x %*c%*c %*c %d %[^\n]s\n", (int*)&timeStamp, (int*)&decimal, (int*)&newNode->message.StdId, (int*)&newNode->message.DLC, bufferData);
-			if(res != 5){
+			int res = sscanf(buffer, "%d.%3d%*d %*d %x %*c%*c %*c %d %[^\n]s\n",
+					(int*)&timeStamp, (int*)&decimal,
+					(int*)&newNode->message.StdId,
+					(int*)&newNode->message.DLC,
+					bufferData);
+
+			if (res != 5) {
 				vPortFree(newNode);
 				continue;
 			}
+
 			timeStamp *= 1000;
 			timeStamp += decimal;
 
@@ -49,14 +53,15 @@ int parseLogInternal(FileInfo file, CanNode** head){
 
 			newNode->delay = timeStamp - start_timeStamp;
 
-			for(int i = 0; i < 8; ++i){
+			for (int i = 0; i < 8; ++i) {
 				if(i < newNode->message.DLC)
-					sscanf(&bufferData[i*3], "%2x ", (unsigned int*)&newNode->message.Data[i]);
+					sscanf(	&bufferData[i*3], "%2x ",
+							(unsigned int*)&newNode->message.Data[i]);
 				else
 					newNode->message.Data[i] = 0;
 			}
 
-			if(*head == NULL){
+			if (*head == NULL) {
 				*head = newNode;
 				currentIndex = *head;
 			} else {
@@ -75,9 +80,15 @@ int parseLogInternal(FileInfo file, CanNode** head){
 	return 0;
 }
 
-void cleanUpCANData(CanNode* head){
+int parseLog(FileInfo file, CanNode** head)
+{
+	return parseLogInternal(file,head);
+}
+
+void cleanUpCANData(CanNode* head)
+{
 	CanNode* index = NULL;
-	while(head != NULL){
+	while (head != NULL) {
 		index = head;
 		head = head->next;
 		vPortFree(index);

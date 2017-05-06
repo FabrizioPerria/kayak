@@ -42,15 +42,12 @@
 /* Exported types ------------------------------------------------------------*/
 /* Exported variables --------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
-
-#define SCREEN_WIDTH OTM8009A_800X480_WIDTH
-#define SCREEN_HEIGHT OTM8009A_800X480_HEIGHT
-
 /* Exported macros -----------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */ 
 void CleanDisplay (uint32_t address);
 int WaitForDialog(WM_HWIN hDialog);
 void ErrorHandler(void);
+void initMainWindow(void);
 
 WM_HWIN CreateMessageBox(const char* message);
 

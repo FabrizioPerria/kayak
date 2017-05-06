@@ -2,7 +2,6 @@
 #include "main.h"
 #include "storage.h"
 
-
 #ifdef _USE_BITMAP_PICTURES
 
 extern GUI_CONST_STORAGE GUI_BITMAP bmbackground;
@@ -22,18 +21,18 @@ extern GUI_CONST_STORAGE GUI_BITMAP bmcenter_release;
 #define ID_STORELOG_BUTTON		(GUI_ID_USER + 0x05)
 
 static const GUI_WIDGET_CREATE_INFO _mainWindow[] = {
-	{ WINDOW_CreateIndirect, "Window", ID_MAIN_WINDOW, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0x0, 0 },
-	{ BUTTON_CreateIndirect, "Run Log", ID_RUNLOG_BUTTON, 0, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5, 0, 0, 0},
-	{ BUTTON_CreateIndirect, "Store Log", ID_STORELOG_BUTTON, SCREEN_WIDTH * 3 / 4, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5, 0, 0, 0},
-	{ BUTTON_CreateIndirect, "Open Panels", ID_RUNPANELS_BUTTON, SCREEN_WIDTH / 2, SCREEN_HEIGHT * 2 / 3, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5, 0, 0, 0},
+	{ WINDOW_CreateIndirect, "Window", ID_MAIN_WINDOW, 0, 0, 800, 480, 0, 0x0, 0 },
+	{ BUTTON_CreateIndirect, "Run Log", ID_RUNLOG_BUTTON, 0, 240, 200, 100, 0, 0, 0},
+	{ BUTTON_CreateIndirect, "Store Log", ID_STORELOG_BUTTON, 600, 240, 200, 100, 0, 0, 0},
+	{ BUTTON_CreateIndirect, "Open Panels", ID_RUNPANELS_BUTTON, 400, 320, 200, 100, 0, 0, 0},
 	{ IMAGE_CreateIndirect, "Image", ID_BACKGROUND_IMAGE, 0, 0, 800, 480, WM_CF_BGND , IMAGE_CF_AUTOSIZE, 0 }
 };
 
-
-static void windowCallback(WM_MESSAGE * pMsg) {
+static void windowCallback(WM_MESSAGE * pMsg)
+{
 	WM_HWIN hItem;
 
-	switch (pMsg->MsgId){
+	switch (pMsg->MsgId) {
 	case WM_INIT_DIALOG:
 		WM_EnableWindow(pMsg->hWin);
 
@@ -71,15 +70,14 @@ static void windowCallback(WM_MESSAGE * pMsg) {
 	    break;
 
 	case WM_PAINT:
-
 		GUI_SetBkColor(GUI_WHITE);
 		GUI_Clear();
 		break;
 
 	case WM_NOTIFY_PARENT:
-		switch(WM_GetId(pMsg->hWinSrc)){
+		switch (WM_GetId(pMsg->hWinSrc)) {
 		case ID_RUNLOG_BUTTON:
-			switch(pMsg->Data.v) {
+			switch (pMsg->Data.v) {
 			case WM_NOTIFICATION_RELEASED:
 				CreateExplorer();
 				break;
@@ -93,7 +91,7 @@ static void windowCallback(WM_MESSAGE * pMsg) {
 			}
 			break;
 		case ID_RUNPANELS_BUTTON:
-			switch(pMsg->Data.v) {
+			switch (pMsg->Data.v) {
 			case WM_NOTIFICATION_RELEASED:
 				openPanels(pMsg->hWin);
 				break;
@@ -106,7 +104,8 @@ static void windowCallback(WM_MESSAGE * pMsg) {
 	}
 }
 
-void initMainWindow(void){
+void initMainWindow(void)
+{
 	GUI_CreateDialogBox(_mainWindow, GUI_COUNTOF(_mainWindow), windowCallback, WM_HBKWIN, 0, 0);
 	CleanDisplay(LCD_FB_START_ADDRESS);
 }

@@ -1,4 +1,3 @@
-/* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "canData.h"
 
@@ -26,8 +25,8 @@ extern GUI_CONST_STORAGE GUI_BITMAP bmbackPush;
 
 static const GUI_WIDGET_CREATE_INFO _runTestWindow[] = {
 	{ WINDOW_CreateIndirect, "Window", ID_RUNLOG_WINDOW, 0, 0, 800, 480, 0, 0x0, 0 },
-	{ BUTTON_CreateIndirect, "Play", ID_PLAYLOG_BUTTON, 0, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5, 0, 0, 0},
-	{ BUTTON_CreateIndirect, "Stop", ID_RESETLOG_BUTTON, SCREEN_WIDTH * 3 / 4, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5, 0, 0, 0},
+	{ BUTTON_CreateIndirect, "Play", ID_PLAYLOG_BUTTON, 0, 240, 200, 100, 0, 0, 0 },
+	{ BUTTON_CreateIndirect, "Stop", ID_RESETLOG_BUTTON, 600, 240, 200, 100, 0, 0, 0 },
 	{ TEXT_CreateIndirect, "Text", ID_TEXT_1, 239, 320, 329, 84, 0, 0x0, 0 },
 	{ IMAGE_CreateIndirect, "Image", ID_RUNLOG_BG_IMAGE, 0, 0, 800, 480, WM_CF_BGND , IMAGE_CF_AUTOSIZE, 0 }
 };
@@ -39,7 +38,8 @@ const char closeCmd = 1;
 
 static QueueHandle_t queue;
 
-static void sendCanLogThread(){
+static void sendCanLogThread(void)
+{
 	int cnt = 1;
 
 	CanTxMsgTypeDef CAN_message;
@@ -55,18 +55,18 @@ static void sendCanLogThread(){
 
 	char buffer[MAX_LINE];
 
-	if (f_open(&logFile, (TCHAR const*)fileName, FA_READ) == FR_OK){
+	if (f_open(&logFile, (TCHAR const*)fileName, FA_READ) == FR_OK) {
 		int fileSize = logFile.fsize;
 		char quit = 0;
 		xQueueReceive(queue, &quit, 0);
-		while(!f_eof(&logFile) && !quit){
+		while (!f_eof(&logFile) && !quit) {
 
 			PROGBAR_SetValue(hProgBar, cnt * 100 / fileSize);
 			cnt += 50;	//average line length in the file
 
 			memset(buffer,0,MAX_LINE);
 			f_gets(buffer, MAX_LINE, &logFile);
-			if(buffer[0] < '0' || buffer[0] > '9'){
+			if(buffer[0] < '0' || buffer[0] > '9') {
 				continue;
 			}
 
@@ -88,7 +88,7 @@ static void sendCanLogThread(){
 					(int*)&CAN_message.Data[7]
 			);
 
-			if(res < 2){
+			if (res < 2) {
 				continue;
 			}
 
@@ -163,7 +163,8 @@ static void windowCallback(WM_MESSAGE * pMsg) {
 			switch(pMsg->Data.v){
 			case WM_NOTIFICATION_RELEASED:
 				queue = xQueueCreate(1,1);
-				xTaskGenericCreate(sendCanLogThread, "sendCanLogThread", 4 * 1024, 0, osPriorityNormal - osPriorityIdle, NULL, NULL, NULL);
+				osThreadDef(sendCanLogThread, sendCanLogThread, osPriorityNormal, 0, 4 * 1024);
+				osThreadCreate (osThread(sendCanLogThread), NULL);
 			}
 			break;
 
