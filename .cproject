@@ -79,7 +79,6 @@
 							</tool>
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1824994740" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker">
 								<option id="gnu.c.link.option.paths.1096643812" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/kayak/repository/STemWin_Addons}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/kayak/repository/Middlewares/ST/STemWin/Lib}&quot;"/>
 								</option>
 								<option id="gnu.c.link.option.libs.814600748" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">

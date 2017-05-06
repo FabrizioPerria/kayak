@@ -8,7 +8,6 @@
 #ifndef APPLICATION_USER_SCREENS_INC_RUNTESTSCREEN_H_
 #define APPLICATION_USER_SCREENS_INC_RUNTESTSCREEN_H_
 
-//#include "main.h"
 #include "canData.h"
 #include "ExplorerDLG.h"
 

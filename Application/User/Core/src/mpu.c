@@ -1,4 +1,4 @@
-#include "main.h"
+#include "stm32f7xx_hal.h"
 
 /**
 * @brief  Configure the MPU attributes as Write Through for SRAM1/2.
