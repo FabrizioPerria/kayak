@@ -107,5 +107,5 @@ static void windowCallback(WM_MESSAGE * pMsg)
 void initMainWindow(void)
 {
 	GUI_CreateDialogBox(_mainWindow, GUI_COUNTOF(_mainWindow), windowCallback, WM_HBKWIN, 0, 0);
-	CleanDisplay(LCD_FB_START_ADDRESS);
+//	CleanDisplay(LCD_FB_START_ADDRESS);
 }

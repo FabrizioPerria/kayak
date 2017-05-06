@@ -1,5 +1,9 @@
-/* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
+#include "storage.h"
+#include "bspManager.h"
+#include "mpu.h"
+#include "rtc.h"
 
 #define USE_BANDING_MEMDEV
 static void SystemClock_Config(void);

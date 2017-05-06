@@ -6,7 +6,10 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"   
+#include "ff_gen_drv.h"
+#include "usbh_diskio.h"
+#include "sd_diskio.h"
+#include "CHOOSEFILE.h"
 
    /* Exported constants --------------------------------------------------------*/
 #define FILE_LIST_DEPDTH                     	20

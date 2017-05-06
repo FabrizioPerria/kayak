@@ -27,7 +27,7 @@
 static WM_HWIN hWin;
 // USER START (Optionally insert additional static data)
 
-extern CAN_HandleTypeDef hcan1;
+//extern CAN_HandleTypeDef hcan1;
 // USER END
 
 /*********************************************************************
@@ -87,7 +87,6 @@ static void mainCallback(WM_MESSAGE *pMsg)
 	WM_HWIN hItem;
 	int     NCode;
 	int     Id;
-	WM_HWIN parent;
 
 	switch (pMsg->MsgId) {
 	case WM_INIT_DIALOG:

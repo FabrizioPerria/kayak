@@ -1,6 +1,7 @@
 #include "DIALOG.h"
-#include "main.h"
 #include "ExplorerDLG.h"
+#include "storage.h"
+#include "bspManager.h"
 
 #ifdef _USE_BITMAP_PICTURES
 

@@ -45,7 +45,11 @@
   ******************************************************************************
   */
   
-#include "main.h"
+///* EVAL includes component */
+#include "stm32f769i_discovery_ts.h"
+
+///* GUI includes components */
+#include "DIALOG.h"
 #include "GUI.h"
 #include "GUIDRV_Lin.h"
 

@@ -6,38 +6,11 @@
  extern "C" {
 #endif
    
-/* Includes ------------------------------------------------------------------*/
+///* Includes ------------------------------------------------------------------*/
 #include "stm32f7xx_hal.h"
-#include "stm32f7xx_it.h"
-
-/* EVAL includes component */
-#include "stm32f769i_discovery.h"     
-#include "stm32f769i_discovery_sdram.h"
-#include "stm32f769i_discovery_ts.h"
-#include "stm32f769i_discovery_audio.h"	 
-#include "stm32f769i_discovery_qspi.h"
-   
-/* FatFs includes components */
-#include "ff_gen_drv.h"
-#include "usbh_diskio.h"
-#include "sd_diskio.h"
-   
-/* GUI includes components */
-#include "GUI.h"
 #include "DIALOG.h"
-
- /* Kernel includes components */
-#include "storage.h"
-#include "rtc.h"
-#include "bspManager.h"
-#include "mpu.h"
    
 /* utilities and standard includes components */   
-#include "cpu_utils.h"
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
    
 /* Exported types ------------------------------------------------------------*/
 /* Exported variables --------------------------------------------------------*/
