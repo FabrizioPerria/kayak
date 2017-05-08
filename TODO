@@ -3,13 +3,11 @@ udp discovery routine when ethernet PHY connection is detected
 UDP server to get commands through ethernet and send CAN messages
 WPF windows application to comunicate to kayak
 
-SPI working??
-CAN working??
-
 finish main panel (lock, ACC, run)
+
+SPI screen
 
 regex for can log parsing
 
-modularize GUI routines(open file, dialog box)
 debug crash at the first execution
 coding style

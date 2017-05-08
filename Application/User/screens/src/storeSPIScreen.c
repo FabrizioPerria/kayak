@@ -2,6 +2,8 @@
 #include "ExplorerDLG.h"
 #include "storage.h"
 #include "bspManager.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 #ifdef _USE_BITMAP_PICTURES
 

@@ -36,12 +36,14 @@ extern CAN_HandleTypeDef hcan1;
 const char closeCmd = 1;
 
 static QueueHandle_t queue;
+CanTxMsgTypeDef CAN_message;
 
 static void sendCanLogThread(void)
 {
 	int cnt = 1;
+	int startTime = 0;
+	int currentTime = 0;
 
-	CanTxMsgTypeDef CAN_message;
 	hcan1.pTxMsg = &CAN_message;
 
 	WM_HWIN hProgBar = WM_GetDialogItem(window, ID_LOGPROGBAR);
@@ -74,18 +76,24 @@ static void sendCanLogThread(void)
 			char bufferData[24];
 			memset(bufferData, 0, 24);
 
-			int res = sscanf(buffer, "%*d.%*d %*d %x %*c%*c %*c %d %d %d %d %d %d %d %d %d\n",
-					(int*)&CAN_message.StdId,
-					(int*)&CAN_message.DLC,
-					(int*)&CAN_message.Data[0],
-					(int*)&CAN_message.Data[1],
-					(int*)&CAN_message.Data[2],
-					(int*)&CAN_message.Data[3],
-					(int*)&CAN_message.Data[4],
-					(int*)&CAN_message.Data[5],
-					(int*)&CAN_message.Data[6],
-					(int*)&CAN_message.Data[7]
+int res = sscanf(buffer, "%d.%*d %*d %x %*c%*c %*c %d %x %x %x %x %x %x %x %x\n",
+				&currentTime,
+				(int*)&CAN_message.StdId,
+				(int*)&CAN_message.DLC,
+				(int*)&CAN_message.Data[0],
+				(int*)&CAN_message.Data[1],
+				(int*)&CAN_message.Data[2],
+				(int*)&CAN_message.Data[3],
+				(int*)&CAN_message.Data[4],
+				(int*)&CAN_message.Data[5],
+				(int*)&CAN_message.Data[6],
+				(int*)&CAN_message.Data[7]
 			);
+
+			if (startTime != 0)
+				HAL_Delay(1);
+
+			startTime = currentTime;
 
 			if (res < 2) {
 				continue;
@@ -173,7 +181,7 @@ static void windowCallback(WM_MESSAGE * pMsg) {
 				//closeThread
 				hItem = WM_GetDialogItem(pMsg->hWin, ID_LOGPROGBAR);
 				PROGBAR_SetValue(hItem, 0);
-				if(queue){
+				if (queue){
 					xQueueSend(queue, &closeCmd, 0);
 				}
 				break;
