@@ -5,5 +5,10 @@
 #include "stm32f7xx_hal.h"
 #include "stm32f7xx_it.h"
 
+enum {
+	SPEED = 0,
+	RPM,
+	CBC_PT2
+};
 
 #endif /* APPLICATION_USER_SCREENS_INC_PANELSSCREEN_H_ */

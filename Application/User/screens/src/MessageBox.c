@@ -1,4 +1,6 @@
 #include "MessageBox.h"
+#include <stdlib.h>
+#include "DIALOG.h"
 
 #define ID_FRAMEWIN_MB  (GUI_ID_USER + 0x00)
 #define ID_BUTTON_OK  (GUI_ID_USER + 0x01)

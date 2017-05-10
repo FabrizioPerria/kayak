@@ -3,8 +3,6 @@ udp discovery routine when ethernet PHY connection is detected
 UDP server to get commands through ethernet and send CAN messages
 WPF windows application to comunicate to kayak
 
-finish main panel (lock, ACC, run)
-
 SPI screen
 
 regex for can log parsing
