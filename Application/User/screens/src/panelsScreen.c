@@ -1,4 +1,6 @@
 #include "panelsScreen.h"
+#include "messages.h"
+#include "bspManager.h"
 #include "cmsis_os.h"
 #include <string.h>
 #include "main.h"
@@ -29,13 +31,12 @@
 */
 static WM_HWIN hWin;
 // USER START (Optionally insert additional static data)
-//static int speed;
-//static int rpm;
+
 //static int choiceCBCPT2;
-static int periodicID[50];
-static int periodicData[50];
-static int periodicLength[50];
-extern CAN_HandleTypeDef hcan1;
+
+static int periodicID[NUM_CAN_MESSAGES];
+static uint8_t* periodicData[NUM_CAN_MESSAGES];
+static int periodicLength[NUM_CAN_MESSAGES];
 // USER END
 
 /*********************************************************************
@@ -69,22 +70,6 @@ static const GUI_WIDGET_CREATE_INFO _aDialogMainCreate[] = {
 *
 **********************************************************************
 */
-CanTxMsgTypeDef msg;
-
-// USER START (Optionally insert additional static code)
-static void sendCANMessage(uint32_t ID, uint32_t length, uint8_t* message)
-{
-	for(int i = 0; i < 8; ++i)
-		msg.Data[i] = message[i];
-	msg.DLC = length;
-	msg.StdId = ID;
-	msg.IDE = CAN_ID_STD;
-
-	hcan1.pTxMsg = &msg;
-//	if (HAL_CAN_Transmit(&hcan1, 10000) != HAL_OK)
-//		ErrorHandler();
-	HAL_CAN_Transmit(&hcan1, 100);
-}
 
 static void mainCallback(WM_MESSAGE *pMsg)
 {
@@ -112,18 +97,22 @@ static void mainCallback(WM_MESSAGE *pMsg)
 		memset(buffer, 0, 8);
 		switch (Id) {
 		case ID_SLIDER_0: // Notifications sent by 'Slider'
-			switch (NCode) {
+			switch(NCode) {
 			case WM_NOTIFICATION_VALUE_CHANGED:
 				hItem = WM_GetDialogItem(pMsg->hWin, ID_SLIDER_0);
-				periodicData[SPEED] = SLIDER_GetValue(hItem) * 128;
+				int speed = SLIDER_GetValue(hItem) * 128;
+				periodicData[CAN_ESP_A8][4] = (uint8_t) ((speed >> 8) & 0xFF);
+				periodicData[CAN_ESP_A8][5] = (uint8_t) (speed & 0xFF);
 				break;
 			}
 			break;
 		case ID_SLIDER_1: // Notifications sent by 'Slider'
-			switch (NCode) {
+			switch(NCode) {
 			case WM_NOTIFICATION_VALUE_CHANGED:
 				hItem = WM_GetDialogItem(pMsg->hWin, ID_SLIDER_1);
-				periodicData[RPM] = SLIDER_GetValue(hItem);
+				int rpm = SLIDER_GetValue(hItem);
+				periodicData[CAN_CBC_PT8][0] = (uint8_t) ((rpm >> 8) & 0xFF);
+				periodicData[CAN_CBC_PT8][1] = (uint8_t) (rpm & 0xFF);
 				break;
 			}
 			break;
@@ -138,16 +127,16 @@ static void mainCallback(WM_MESSAGE *pMsg)
 				int val = RADIO_GetValue(hItem);
 				switch (val) {
 				case 1:
-					periodicData[CBC_PT2] = 3;
+					periodicData[CAN_CBC_PT2][0] = 3;
 					break;
 				case 2:
-					periodicData[CBC_PT2] = 4;
+					periodicData[CAN_CBC_PT2][0] = 4;
 					break;
 				case 3:
-					periodicData[CBC_PT2] = 5;
+					periodicData[CAN_CBC_PT2][0] = 5;
 					break;
 				default:
-					periodicData[CBC_PT2] = 0;
+					periodicData[CAN_CBC_PT2][0] = 0;
 					break;
 				}
 				break;
@@ -156,57 +145,57 @@ static void mainCallback(WM_MESSAGE *pMsg)
 		case ID_BUTTON_0: // Notifications sent by 'Up'
 			switch (NCode) {
 			case WM_NOTIFICATION_CLICKED:
-				buffer[5] = 0x04;
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][5] = 0x04;
 				break;
 			case WM_NOTIFICATION_RELEASED:
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][5] = 0x00;
 				break;
 			}
+			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
 			break;
 		case ID_BUTTON_1: // Notifications sent by 'Right'
 			switch (NCode) {
 			case WM_NOTIFICATION_CLICKED:
-				buffer[5] = 0x01;
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][5] = 0x01;
 				break;
 			case WM_NOTIFICATION_RELEASED:
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][5] = 0x00;
 				break;
 			}
+			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
 			break;
 		case ID_BUTTON_2: // Notifications sent by 'Left'
 			switch (NCode) {
 			case WM_NOTIFICATION_CLICKED:
-				buffer[4] = 0x10;
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][4] = 0x10;
 				break;
 			case WM_NOTIFICATION_RELEASED:
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][4] = 0x00;
 				break;
 			}
+			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
 			break;
 		case ID_BUTTON_3: // Notifications sent by 'Down'
 			switch (NCode) {
 			case WM_NOTIFICATION_CLICKED:
-				buffer[4] = 0x40;
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][4] = 0x40;
 				break;
 			case WM_NOTIFICATION_RELEASED:
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][4] = 0x00;
 				break;
 			}
+			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
 			break;
 		case ID_BUTTON_4: // Notifications sent by 'OK'
 			switch (NCode) {
 			case WM_NOTIFICATION_CLICKED:
-				buffer[5] = 0x10;
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][5] = 0x10;
 				break;
 			case WM_NOTIFICATION_RELEASED:
-				sendCANMessage(0x22D, 8, buffer);
+				periodicData[CAN_SWS_8][5] = 0x00;
 				break;
 			}
+			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
 			break;
 		case ID_EXIT_BUTTON: // Notifications sent by 'OK'
 			switch (NCode) {
@@ -225,12 +214,6 @@ static void mainCallback(WM_MESSAGE *pMsg)
 	}
 }
 
-// USER END
-
-/*********************************************************************
-*
-*       _cbDialog
-*/
 static void _cbDialog(WM_MESSAGE * pMsg) {
 	WM_HWIN hItem;
 	int     NCode;
@@ -239,7 +222,6 @@ static void _cbDialog(WM_MESSAGE * pMsg) {
 	switch (pMsg->MsgId) {
 	case WM_INIT_DIALOG:
 		hItem = WM_GetDialogItem(pMsg->hWin, ID_MULTIPAGE_0);
-		// Add pages HERE
 		WM_HWIN hDialog = GUI_CreateDialogBox(_aDialogMainCreate, GUI_COUNTOF(_aDialogMainCreate), mainCallback, WM_UNATTACHED, 0, 0);
 		MULTIPAGE_AddPage(hItem, hDialog, "Main");
 
@@ -272,709 +254,465 @@ static void _cbDialog(WM_MESSAGE * pMsg) {
 	}
 }
 
-CanTxMsgTypeDef objt_CAN_AMB_TEMP_DISP_Msg;
-	CanTxMsgTypeDef objt_CAN_APPL_ECU_IC_Msg;
-	CanTxMsgTypeDef objt_CAN_ASBS_1_Msg;
-	CanTxMsgTypeDef objt_CAN_BSM_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_CBC_PT1_Msg;
-	CanTxMsgTypeDef objt_CAN_CBC_PT10_Msg;
-	CanTxMsgTypeDef objt_CAN_CBC_PT2_Msg;
-	CanTxMsgTypeDef objt_CAN_CBC_PT3_Msg;
-	CanTxMsgTypeDef objt_CAN_CBC_PT4_Msg;
-	CanTxMsgTypeDef objt_CAN_CBC_PT8_Msg;
-	CanTxMsgTypeDef objt_CAN_CBC_PT9_Msg;
-	CanTxMsgTypeDef objt_CAN_CFG_RQ_Msg;
-	CanTxMsgTypeDef objt_CAN_Clock_Date_Msg;
-	CanTxMsgTypeDef objt_CAN_COMPASS_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_D_RQ_IC_Msg;
-	CanTxMsgTypeDef objt_CAN_DG_RQ_GLOBAL_UDS_Msg;
-	CanTxMsgTypeDef objt_CAN_DIRECT_INFO_Msg;
-	CanTxMsgTypeDef objt_CAN_DTCM_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_DTCM_B1_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_A3_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_B11_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_B2_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_B3_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_B5_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_B9_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_CRUISE_MAP_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_DIESEL_Msg;
-	CanTxMsgTypeDef objt_CAN_ECM_INDICATORS_Msg;
-	CanTxMsgTypeDef objt_CAN_EcuCfg10_Msg;
-	CanTxMsgTypeDef objt_CAN_EcuCfg12_Msg;
-	CanTxMsgTypeDef objt_CAN_EcuCfg4_Msg;
-	CanTxMsgTypeDef objt_CAN_ENG_CFG_Msg;
-	CanTxMsgTypeDef objt_CAN_EPS_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_ESP_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_ESP_A8_Msg;
-	CanTxMsgTypeDef objt_CAN_ESP_B1_Msg;
-	CanTxMsgTypeDef objt_CAN_GW_I_C1_Msg;
-	CanTxMsgTypeDef objt_CAN_GW_LIN_I_C2_Msg;
-	CanTxMsgTypeDef objt_CAN_GW_LIN_I_C4_Msg;
-	CanTxMsgTypeDef objt_CAN_HCP_C1_Msg;
-	CanTxMsgTypeDef objt_CAN_HCP_DISP_Msg;
-	CanTxMsgTypeDef objt_CAN_NAV_DATA_Msg;
-	CanTxMsgTypeDef objt_CAN_NET_CFG_INT_Msg;
-	CanTxMsgTypeDef objt_CAN_NET_CFG_PT_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_CBC_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_EPS_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_ESC_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_ESL_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_HCP_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_IC_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_RF_HUB_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_SBWM_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_SCCM_Msg;
-	CanTxMsgTypeDef objt_CAN_NM_TPM_Msg;
-	CanTxMsgTypeDef objt_CAN_ORC_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_ORC_A3_Msg;
-	CanTxMsgTypeDef objt_CAN_PN14_STAT_Msg;
-	CanTxMsgTypeDef objt_CAN_PTS_1_Msg;
-	CanTxMsgTypeDef objt_CAN_PTS_2_Msg;
-	CanTxMsgTypeDef objt_CAN_RFHUB_A2_Msg;
-	CanTxMsgTypeDef objt_CAN_RFHUB_A3_Msg;
-	CanTxMsgTypeDef objt_CAN_SBW_ROT1_Msg;
-	CanTxMsgTypeDef objt_CAN_SCCM_STW_ANGL_STAT_Msg;
-	CanTxMsgTypeDef objt_CAN_STATUS_C_PTS_Msg;
-	CanTxMsgTypeDef objt_CAN_SWS_8_Msg;
-	CanTxMsgTypeDef objt_CAN_TCM_A7_Msg;
-	CanTxMsgTypeDef objt_CAN_TGW_DATA_IC_Msg;
-	CanTxMsgTypeDef objt_CAN_TPM_A1_Msg;
-	CanTxMsgTypeDef objt_CAN_TRNS_SPD_Msg;
-	CanTxMsgTypeDef objt_CAN_TRNS_STAT_Msg;
-	CanTxMsgTypeDef objt_CAN_TRNS_STAT2_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfg1_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfg2_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfg3_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfg5_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfg6_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfg7_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfg8_Msg;
-	uint8_t m_abyte_CBC_PT9_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	CanTxMsgTypeDef objt_CAN_VehCfgCSM1_Msg;
-	CanTxMsgTypeDef objt_CAN_VehCfgCSM2_Msg;
-	CanTxMsgTypeDef objt_CAN_VIN_Msg;
 
-
-	uint8_t m_abyte_AMB_TEMP_DISP_Msg[] = {0x70, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_APPL_ECU_IC_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ASBS_1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_BSM_A1_Msg[] = {0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_CBC_PT1_Msg[] = {0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00};
-	uint8_t m_abyte_CBC_PT10_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_CBC_PT2_Msg[] = {0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_CBC_PT3_Msg[] = {0x82, 0x14, 0xB4, 0xB3, 0x46, 0x4A, 0x8A, 0x00};
-	uint8_t m_abyte_CBC_PT4_Msg[] = {0xC8, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_CBC_PT8_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0xFF};
-	uint8_t m_abyte_CFG_RQ_Msg[] = {0x0A, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_Clock_Date_Msg[] = {0x18, 0x0E, 0x03, 0x07, 0xE1, 0x05, 0x19, 0x02};
-	uint8_t m_abyte_COMPASS_A1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_D_RQ_IC_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_DG_RQ_GLOBAL_UDS_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_DIRECT_INFO_Msg[] = {0x07, 0xD0, 0x0B, 0x47, 0x06, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_DTCM_A1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_DTCM_B1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ECM_A1_Msg[] = {0x05, 0xDC, 0x07, 0xCC, 0x07, 0xCC, 0x00, 0xFF};
-	uint8_t m_abyte_ECM_A3_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ECM_B11_Msg[] = {0x00, 0x7F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ECM_B2_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ECM_B3_Msg[] = {0x2C, 0x8C, 0x7B, 0x00, 0xDF, 0x00, 0xC8, 0x00};
-	uint8_t m_abyte_ECM_B5_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ECM_B9_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ECM_CRUISE_MAP_Msg[] = {0x00, 0x78, 0x3F, 0x21, 0xCD, 0xCD, 0x00, 0x00};
-	uint8_t m_abyte_ECM_DIESEL_Msg[] = {0x80, 0x01, 0x00, 0x00, 0x00, 0x09, 0x00, 0x07};
-	uint8_t m_abyte_ECM_INDICATORS_Msg[] = {0x00, 0x00, 0x32, 0x53, 0x0E, 0x02, 0x58, 0x04};
-	uint8_t m_abyte_EcuCfg10_Msg[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_EcuCfg12_Msg[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_EcuCfg4_Msg[] = {0x81, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ENG_CFG_Msg[] = {0x26, 0x18, 0x00, 0x18, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_EPS_A1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ESP_A1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ESP_A8_Msg[] = {0x05, 0x55, 0x05, 0x55, 0x26, 0x80, 0x77, 0x33 };
-	uint8_t m_abyte_ESP_B1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_GW_I_C1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xE9, 0x00, 0x00};
-	uint8_t m_abyte_GW_LIN_I_C2_Msg[] = {0x0F, 0xEC, 0x07, 0xEC, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_GW_LIN_I_C4_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_HCP_C1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_HCP_DISP_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NAV_DATA_Msg[] = {0xF0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NET_CFG_INT_Msg[] = {0xFD, 0xFF, 0xFE, 0xFF, 0xFF, 0x80, 0x00, 0x00};
-	uint8_t m_abyte_NET_CFG_PT_Msg[] = {0xF9, 0xFF, 0x9F, 0xFF, 0xF0, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_CBC_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_EPS_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_ESC_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_ESL_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_HCP_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_IC_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_RF_HUB_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_SBWM_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_SCCM_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_NM_TPM_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ORC_A1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_ORC_A3_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_PN14_STAT_Msg[] = {0x00, 0x00, 0xFF, 0xFF, 0xFE, 0x03, 0xFF, 0xFF};
-	uint8_t m_abyte_PTS_1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_PTS_2_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_RFHUB_A2_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_RFHUB_A3_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_SBW_ROT1_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_SCCM_STW_ANGL_STAT_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_STATUS_C_PTS_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_SWS_8_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_TCM_A7_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_TGW_DATA_IC_Msg[] = {0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_TPM_A1_Msg[] = {0x01, 0x00, 0x00, 0x23, 0x22, 0x21, 0x20, 0x24};
-	uint8_t m_abyte_TRNS_SPD_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_TRNS_STAT_Msg[] = {0x10, 0x04, 0x50, 0x00, 0x00, 0x00, 0x00, 0xFF};
-	uint8_t m_abyte_TRNS_STAT2_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	uint8_t m_abyte_VehCfg1_Msg[] = { 0x49, 0x31, 0xA0, 0x7A, 0x64, 0x0E, 0x00, 0x56 };
-	uint8_t m_abyte_VehCfg2_Msg[] = { 0x21, 0x5D, 0x66, 0x30, 0x2A, 0x2C, 0xFF, 0xFF };
-	uint8_t m_abyte_VehCfg3_Msg[] = { 0x71, 0x41, 0x27, 0xCA, 0x50, 0x36, 0x8F, 0xF5 };
-	uint8_t m_abyte_VehCfg5_Msg[] = { 0xC1, 0x00, 0x32, 0x64, 0x96, 0xC8, 0xFA, 0xD4 };
-	uint8_t m_abyte_VehCfg6_Msg[] = { 0x3D, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0x01, 0xFC };
-	uint8_t m_abyte_VehCfg7_Msg[] = { 0x8D, 0x8D, 0x6B, 0x08, 0x41, 0x84, 0x00, 0x00 };
-	uint8_t m_abyte_VehCfg8_Msg[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	uint8_t m_abyte_VehCfgCSM1_Msg[] = {0x67, 0x29, 0x35, 0x01, 0xFF, 0xA3, 0xC7, 0x18};
-	uint8_t m_abyte_VehCfgCSM2_Msg[] = {0xB7, 0x80, 0x00, 0x00, 0x00, 0x40, 0x06, 0x00};
-	uint8_t m_abyte_VIN_Msg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 
 void periodic_CAN_Timer(void)
 {
 	uint8_t buffer[8];
+	static uint32_t ui32_Millisecond_Count = 0;
+
 	//CBCPT2
-	memset(buffer, 0, 8);
-	buffer[0] = (uint8_t) (periodicData[CBC_PT2] & 0xFF);
-	sendCANMessage(periodicID[CBC_PT2], periodicLength[CBC_PT2], buffer);
-	//SPEED
-	memset(buffer, 0, 8);
-	buffer[4] = (uint8_t) ((periodicData[SPEED] >> 8) & 0xFF);
-	buffer[5] = (uint8_t) (periodicData[SPEED] & 0xFF);
-	sendCANMessage(periodicID[SPEED], periodicLength[SPEED], buffer);
-	//RPM
-	memset(buffer, 0, 8);
-	buffer[0] = (uint8_t) ((periodicData[RPM] >> 8) & 0xFF);
-	buffer[1] = (uint8_t) (periodicData[RPM] & 0xFF);
-	sendCANMessage(periodicID[RPM], periodicLength[RPM], buffer);
+//	memset(buffer, 0, 8);
+//	buffer[0] = (uint8_t) (periodicData[CBC_PT2] & 0xFF);
+//	sendCANMessage(periodicID[CBC_PT2], periodicLength[CBC_PT2], buffer);
+//	//SPEED
+//	memset(buffer, 0, 8);
+//	buffer[4] = (uint8_t) ((periodicData[SPEED] >> 8) & 0xFF);
+//	buffer[5] = (uint8_t) (periodicData[SPEED] & 0xFF);
+//	sendCANMessage(periodicID[SPEED], periodicLength[SPEED], buffer);
+//	//RPM
+//	memset(buffer, 0, 8);
+//	buffer[0] = (uint8_t) ((periodicData[RPM] >> 8) & 0xFF);
+//	buffer[1] = (uint8_t) (periodicData[RPM] & 0xFF);
+//	sendCANMessage(periodicID[RPM], periodicLength[RPM], buffer);
 
-	  static uint32_t ui32_Millisecond_Count = 0;
-	  ui32_Millisecond_Count++;
-	  if ((ui32_Millisecond_Count % 10) == 0)
-	  {
-	    //hcan1.pTxMsg = &objt_CAN_Tx_Msg;
-	    //HAL_CAN_Transmit(&hcan1, 10000);
-	    //objt_CAN_Tx_Msg.Data[0]++;
-	    hcan1.pTxMsg = &objt_CAN_ECM_A1_Msg;
-	    //HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_A3_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_SCCM_STW_ANGL_STAT_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }
-	  if ((ui32_Millisecond_Count % (20-2)) == 0)  // start if for 20 msec send periodic
-	  {
-	    hcan1.pTxMsg = &objt_CAN_CBC_PT2_Msg;
-	   // HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_DTCM_A1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_CRUISE_MAP_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ESP_A1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ESP_A8_Msg;
-	    //HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_SBW_ROT1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_TCM_A7_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_TRNS_SPD_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_TRNS_STAT_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }    // end if for 20 msec send periodic
+	ui32_Millisecond_Count++;
+	if ((ui32_Millisecond_Count % 10) == 0) {
+		CAN_Send(periodicID[CAN_ECM_A1], periodicLength[CAN_ECM_A1], periodicData[CAN_ECM_A1]);
+		CAN_Send(periodicID[CAN_ECM_A3], periodicLength[CAN_ECM_A3], periodicData[CAN_ECM_A3]);
+		CAN_Send(periodicID[CAN_SCCM_STW_ANGL_STAT], periodicLength[CAN_SCCM_STW_ANGL_STAT], periodicData[CAN_SCCM_STW_ANGL_STAT]);
+	}
 
-	  if ((ui32_Millisecond_Count % (50 - 6)) == 0)  // start if for 50 msec send periodic
-	  {
-	    hcan1.pTxMsg = &objt_CAN_ESP_B1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_CFG_RQ_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }    // end if for 50 msec send periodic
+	if ((ui32_Millisecond_Count % (20 - 2)) == 0) {
+		CAN_Send(periodicID[CAN_CBC_PT2], periodicLength[CAN_CBC_PT2], periodicData[CAN_CBC_PT2]);
+		CAN_Send(periodicID[CAN_DTCM_A1], periodicLength[CAN_DTCM_A1], periodicData[CAN_DTCM_A1]);
+		CAN_Send(periodicID[CAN_ECM_CRUISE_MAP], periodicLength[CAN_ECM_CRUISE_MAP], periodicData[CAN_ECM_CRUISE_MAP]);
+		CAN_Send(periodicID[CAN_ESP_A1], periodicLength[CAN_ESP_A1], periodicData[CAN_ESP_A1]);
+		CAN_Send(periodicID[CAN_ESP_A8], periodicLength[CAN_ESP_A8], periodicData[CAN_ESP_A8]);
+		CAN_Send(periodicID[CAN_SBW_ROT1], periodicLength[CAN_SBW_ROT1], periodicData[CAN_SBW_ROT1]);
+		CAN_Send(periodicID[CAN_TCM_A7], periodicLength[CAN_TCM_A7], periodicData[CAN_TCM_A7]);
+		CAN_Send(periodicID[CAN_TRNS_SPD], periodicLength[CAN_TRNS_SPD], periodicData[CAN_TRNS_SPD]);
+		CAN_Send(periodicID[CAN_TRNS_STAT], periodicLength[CAN_TRNS_STAT], periodicData[CAN_TRNS_STAT]);
+	}    // end if for 20 msec send periodic
 
-	  if ((ui32_Millisecond_Count % (100 - 12)) == 0)  // start if for 100 msec send periodic
-	  {
-	    hcan1.pTxMsg = &objt_CAN_CBC_PT3_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_CBC_PT9_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_B11_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_B2_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_B3_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_B9_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_DIESEL_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_INDICATORS_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ENG_CFG_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_EPS_A1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_HCP_C1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_TRNS_STAT2_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VIN_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }    // end if for 100 msec send periodic
+	if ((ui32_Millisecond_Count % (50 - 6)) == 0) {
+		CAN_Send(periodicID[CAN_ESP_B1], periodicLength[CAN_ESP_B1], periodicData[CAN_ESP_B1]);
+		CAN_Send(periodicID[CAN_CFG_RQ], periodicLength[CAN_CFG_RQ], periodicData[CAN_CFG_RQ]);
+	}    // end if for 50 msec send periodic
 
-	  if ((ui32_Millisecond_Count % (200 - 26)) == 0)  // start if for 200 msec send periodic
-	  {
-	    hcan1.pTxMsg = &objt_CAN_RFHUB_A2_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }    // end if for 200 msec send periodic
+	if ((ui32_Millisecond_Count % (100 - 12)) == 0) {
+		CAN_Send(periodicID[CAN_CBC_PT3], periodicLength[CAN_CBC_PT3], periodicData[CAN_CBC_PT3]);
+		CAN_Send(periodicID[CAN_CBC_PT9], periodicLength[CAN_CBC_PT9], periodicData[CAN_CBC_PT9]);
+		CAN_Send(periodicID[CAN_ECM_B11], periodicLength[CAN_ECM_B11], periodicData[CAN_ECM_B11]);
+		CAN_Send(periodicID[CAN_ECM_B2], periodicLength[CAN_ECM_B2], periodicData[CAN_ECM_B2]);
+		CAN_Send(periodicID[CAN_ECM_B3], periodicLength[CAN_ECM_B3], periodicData[CAN_ECM_B3]);
+		CAN_Send(periodicID[CAN_ECM_B9], periodicLength[CAN_ECM_B9], periodicData[CAN_ECM_B9]);
+		CAN_Send(periodicID[CAN_ECM_DIESEL], periodicLength[CAN_ECM_DIESEL], periodicData[CAN_ECM_DIESEL]);
+		CAN_Send(periodicID[CAN_ECM_INDICATORS], periodicLength[CAN_ECM_INDICATORS], periodicData[CAN_ECM_INDICATORS]);
+		CAN_Send(periodicID[CAN_ENG_CFG], periodicLength[CAN_ENG_CFG], periodicData[CAN_ENG_CFG]);
+		CAN_Send(periodicID[CAN_EPS_A1], periodicLength[CAN_EPS_A1], periodicData[CAN_EPS_A1]);
+		CAN_Send(periodicID[CAN_HCP_C1], periodicLength[CAN_HCP_C1], periodicData[CAN_HCP_C1]);
+		CAN_Send(periodicID[CAN_TRNS_STAT2], periodicLength[CAN_TRNS_STAT2], periodicData[CAN_TRNS_STAT2]);
+		CAN_Send(periodicID[CAN_VIN], periodicLength[CAN_VIN], periodicData[CAN_VIN]);
+	}    // end if for 100 msec send periodic
 
-	  if ((ui32_Millisecond_Count % (500 - 60)) == 0)  // start if for 500 msec send periodic
-	  {
-	    hcan1.pTxMsg = &objt_CAN_BSM_A1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_HCP_DISP_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_PN14_STAT_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_PTS_1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_PTS_2_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_STATUS_C_PTS_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfg1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }    // end if for 500 msec send periodic
+	if ((ui32_Millisecond_Count % (200 - 26)) == 0) {
+		CAN_Send(periodicID[CAN_RFHUB_A2], periodicLength[CAN_RFHUB_A2], periodicData[CAN_RFHUB_A2]);
+	}    // end if for 200 msec send periodic
 
-	  if ((ui32_Millisecond_Count % (1000 - 120)) == 0)  // start if for 1000 msec send periodic
-	  {
-	    hcan1.pTxMsg = &objt_CAN_AMB_TEMP_DISP_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ASBS_1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_CBC_PT1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_CBC_PT10_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_CBC_PT4_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_CBC_PT8_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_Clock_Date_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_COMPASS_A1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_DIRECT_INFO_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_DTCM_B1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ECM_B5_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_GW_I_C1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_GW_LIN_I_C2_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_GW_LIN_I_C4_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ORC_A1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_ORC_A3_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_RFHUB_A3_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_SWS_8_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_TGW_DATA_IC_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_TPM_A1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }    // end if for 1000 msec send periodic
+	if ((ui32_Millisecond_Count % (500 - 60)) == 0) {
+		CAN_Send(periodicID[CAN_BSM_A1], periodicLength[CAN_BSM_A1], periodicData[CAN_BSM_A1]);
+		CAN_Send(periodicID[CAN_HCP_DISP], periodicLength[CAN_HCP_DISP], periodicData[CAN_HCP_DISP]);
+		CAN_Send(periodicID[CAN_PN14_STAT], periodicLength[CAN_PN14_STAT], periodicData[CAN_PN14_STAT]);
+		CAN_Send(periodicID[CAN_PTS_1], periodicLength[CAN_PTS_1], periodicData[CAN_PTS_1]);
+		CAN_Send(periodicID[CAN_PTS_2], periodicLength[CAN_PTS_2], periodicData[CAN_PTS_2]);
+		CAN_Send(periodicID[CAN_STATUS_C_PTS], periodicLength[CAN_STATUS_C_PTS], periodicData[CAN_STATUS_C_PTS]);
+		CAN_Send(periodicID[CAN_VehCfg1], periodicLength[CAN_VehCfg1], periodicData[CAN_VehCfg1]);
+	}    // end if for 500 msec send periodic
 
-	  if ((ui32_Millisecond_Count % 1760) == 0)  // start if for 2000 msec send periodic
-	  {
-	    hcan1.pTxMsg = &objt_CAN_EcuCfg10_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_EcuCfg12_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_EcuCfg4_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_NET_CFG_INT_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_NET_CFG_PT_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfg2_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfg3_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfg5_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfg6_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfg7_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfg8_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfgCSM1_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	    hcan1.pTxMsg = &objt_CAN_VehCfgCSM2_Msg;
-	    HAL_CAN_Transmit(&hcan1, 10000);
-	  }    // end if for 2000 msec send periodic
+	if ((ui32_Millisecond_Count % (1000 - 120)) == 0) {
+		CAN_Send(periodicID[CAN_AMB_TEMP_DISP], periodicLength[CAN_AMB_TEMP_DISP], periodicData[CAN_AMB_TEMP_DISP]);
+		CAN_Send(periodicID[CAN_ASBS_1], periodicLength[CAN_ASBS_1], periodicData[CAN_ASBS_1]);
+		CAN_Send(periodicID[CAN_CBC_PT1], periodicLength[CAN_CBC_PT1], periodicData[CAN_CBC_PT1]);
+		CAN_Send(periodicID[CAN_CBC_PT10], periodicLength[CAN_CBC_PT10], periodicData[CAN_CBC_PT10]);
+		CAN_Send(periodicID[CAN_CBC_PT4], periodicLength[CAN_CBC_PT4], periodicData[CAN_CBC_PT4]);
+		CAN_Send(periodicID[CAN_CBC_PT8], periodicLength[CAN_CBC_PT8], periodicData[CAN_CBC_PT8]);
+		CAN_Send(periodicID[CAN_Clock_Date], periodicLength[CAN_Clock_Date], periodicData[CAN_Clock_Date]);
+		CAN_Send(periodicID[CAN_COMPASS_A1], periodicLength[CAN_COMPASS_A1], periodicData[CAN_COMPASS_A1]);
+		CAN_Send(periodicID[CAN_DIRECT_INFO], periodicLength[CAN_DIRECT_INFO], periodicData[CAN_DIRECT_INFO]);
+		CAN_Send(periodicID[CAN_DTCM_B1], periodicLength[CAN_DTCM_B1], periodicData[CAN_DTCM_B1]);
+		CAN_Send(periodicID[CAN_ECM_B5], periodicLength[CAN_ECM_B5], periodicData[CAN_ECM_B5]);
+		CAN_Send(periodicID[CAN_GW_I_C1], periodicLength[CAN_GW_I_C1], periodicData[CAN_GW_I_C1]);
+		CAN_Send(periodicID[CAN_GW_LIN_I_C2], periodicLength[CAN_GW_LIN_I_C2], periodicData[CAN_GW_LIN_I_C2]);
+		CAN_Send(periodicID[CAN_GW_LIN_I_C4], periodicLength[CAN_GW_LIN_I_C4], periodicData[CAN_GW_LIN_I_C4]);
+		CAN_Send(periodicID[CAN_ORC_A1], periodicLength[CAN_ORC_A1], periodicData[CAN_ORC_A1]);
+		CAN_Send(periodicID[CAN_ORC_A3], periodicLength[CAN_ORC_A3], periodicData[CAN_ORC_A3]);
+		CAN_Send(periodicID[CAN_RFHUB_A3], periodicLength[CAN_RFHUB_A3], periodicData[CAN_RFHUB_A3]);
+//		CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
+		CAN_Send(periodicID[CAN_TGW_DATA_IC], periodicLength[CAN_TGW_DATA_IC], periodicData[CAN_TGW_DATA_IC]);
+		CAN_Send(periodicID[CAN_TPM_A1], periodicLength[CAN_TPM_A1], periodicData[CAN_TPM_A1]);
+	}    // end if for 1000 msec send periodic
+
+	if ((ui32_Millisecond_Count % (2000 - 240)) == 0) {
+		CAN_Send(periodicID[CAN_EcuCfg10], periodicLength[CAN_EcuCfg10], periodicData[CAN_EcuCfg10]);
+		CAN_Send(periodicID[CAN_EcuCfg12], periodicLength[CAN_EcuCfg12], periodicData[CAN_EcuCfg12]);
+		CAN_Send(periodicID[CAN_EcuCfg4], periodicLength[CAN_EcuCfg4], periodicData[CAN_EcuCfg4]);
+		CAN_Send(periodicID[CAN_NET_CFG_INT], periodicLength[CAN_NET_CFG_INT], periodicData[CAN_NET_CFG_INT]);
+		CAN_Send(periodicID[CAN_NET_CFG_PT], periodicLength[CAN_NET_CFG_PT], periodicData[CAN_NET_CFG_PT]);
+		CAN_Send(periodicID[CAN_VehCfg2], periodicLength[CAN_VehCfg2], periodicData[CAN_VehCfg2]);
+		CAN_Send(periodicID[CAN_VehCfg3], periodicLength[CAN_VehCfg3], periodicData[CAN_VehCfg3]);
+		CAN_Send(periodicID[CAN_VehCfg5], periodicLength[CAN_VehCfg5], periodicData[CAN_VehCfg5]);
+		CAN_Send(periodicID[CAN_VehCfg6], periodicLength[CAN_VehCfg6], periodicData[CAN_VehCfg6]);
+		CAN_Send(periodicID[CAN_VehCfg7], periodicLength[CAN_VehCfg7], periodicData[CAN_VehCfg7]);
+		CAN_Send(periodicID[CAN_VehCfg8], periodicLength[CAN_VehCfg8], periodicData[CAN_VehCfg8]);
+		CAN_Send(periodicID[CAN_VehCfgCSM1], periodicLength[CAN_VehCfgCSM1], periodicData[CAN_VehCfgCSM1]);
+		CAN_Send(periodicID[CAN_VehCfgCSM2], periodicLength[CAN_VehCfgCSM2], periodicData[CAN_VehCfgCSM2]);
+	}    // end if for 2000 msec send periodic
 }
 
 void initArrays(void)
 {
-	periodicID[SPEED] = 0x79;
-	periodicLength[SPEED] = 8;
+//speed is CAN_ESP_A8
+//	periodicID[SPEED] = 0x79;
+//	periodicLength[SPEED] = 8;
 
-	periodicID[RPM] = 0x25;
-	periodicLength[RPM] = 8;
+	//RPM is CAN_CBC_PT8
+//	periodicID[RPM] = 0x25;
+//	periodicLength[RPM] = 8;
 
-	periodicID[CBC_PT2] = 0x77;
-	periodicLength[CBC_PT2] = 2;
+	//BUTTONS ARE CAN_SWS_8
 
-	objt_CAN_AMB_TEMP_DISP_Msg.DLC = 4;
-	objt_CAN_AMB_TEMP_DISP_Msg.StdId = 0x3C9;
-	objt_CAN_AMB_TEMP_DISP_Msg.IDE = CAN_ID_STD;
-	objt_CAN_APPL_ECU_IC_Msg.DLC = 8;
-	objt_CAN_APPL_ECU_IC_Msg.StdId = 0x6C2;
-	objt_CAN_APPL_ECU_IC_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ASBS_1_Msg.DLC = 8;
-	objt_CAN_ASBS_1_Msg.StdId = 0x371;
-	objt_CAN_ASBS_1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_BSM_A1_Msg.DLC = 6;
-	objt_CAN_BSM_A1_Msg.StdId = 0x2D0;
-	objt_CAN_BSM_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CBC_PT1_Msg.DLC = 8;
-	objt_CAN_CBC_PT1_Msg.StdId = 0x291;
-	objt_CAN_CBC_PT1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CBC_PT10_Msg.DLC = 8;
-	objt_CAN_CBC_PT10_Msg.StdId = 0x265;
-	objt_CAN_CBC_PT10_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CBC_PT2_Msg.DLC = 2;
-	objt_CAN_CBC_PT2_Msg.StdId = 0x77;
-	objt_CAN_CBC_PT2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CBC_PT3_Msg.DLC = 8;
-	objt_CAN_CBC_PT3_Msg.StdId = 0x12B;
-	objt_CAN_CBC_PT3_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CBC_PT4_Msg.DLC = 8;
-	objt_CAN_CBC_PT4_Msg.StdId = 0x283;
-	objt_CAN_CBC_PT4_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CBC_PT8_Msg.DLC = 8;
-	objt_CAN_CBC_PT8_Msg.StdId = 0x25F;
-	objt_CAN_CBC_PT8_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CBC_PT9_Msg.DLC = 8;
-	objt_CAN_CBC_PT9_Msg.StdId = 0x13F;
-	objt_CAN_CBC_PT9_Msg.IDE = CAN_ID_STD;
-	objt_CAN_CFG_RQ_Msg.DLC = 3;
-	objt_CAN_CFG_RQ_Msg.StdId = 0x314;
-	objt_CAN_CFG_RQ_Msg.IDE = CAN_ID_STD;
-	objt_CAN_Clock_Date_Msg.DLC = 8;
-	objt_CAN_Clock_Date_Msg.StdId = 0x350;
-	objt_CAN_Clock_Date_Msg.IDE = CAN_ID_STD;
-	objt_CAN_COMPASS_A1_Msg.DLC = 4;
-	objt_CAN_COMPASS_A1_Msg.StdId = 0x358;
-	objt_CAN_COMPASS_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_D_RQ_IC_Msg.DLC = 8;
-	objt_CAN_D_RQ_IC_Msg.StdId = 0x742;
-	objt_CAN_D_RQ_IC_Msg.IDE = CAN_ID_STD;
-	objt_CAN_DG_RQ_GLOBAL_UDS_Msg.DLC = 8;
-	objt_CAN_DG_RQ_GLOBAL_UDS_Msg.StdId = 0x441;
-	objt_CAN_DG_RQ_GLOBAL_UDS_Msg.IDE = CAN_ID_STD;
-	objt_CAN_DIRECT_INFO_Msg.DLC = 6;
-	objt_CAN_DIRECT_INFO_Msg.StdId = 0x35C;
-	objt_CAN_DIRECT_INFO_Msg.IDE = CAN_ID_STD;
-	objt_CAN_DTCM_A1_Msg.DLC = 8;
-	objt_CAN_DTCM_A1_Msg.StdId = 0x8D;
-	objt_CAN_DTCM_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_DTCM_B1_Msg.DLC = 8;
-	objt_CAN_DTCM_B1_Msg.StdId = 0x277;
-	objt_CAN_DTCM_B1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_A1_Msg.DLC = 8;
-	objt_CAN_ECM_A1_Msg.StdId = 0x25;
-	objt_CAN_ECM_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_A3_Msg.DLC = 8;
-	objt_CAN_ECM_A3_Msg.StdId = 0x35;
-	objt_CAN_ECM_A3_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_B11_Msg.DLC = 8;
-	objt_CAN_ECM_B11_Msg.StdId = 0x2A4;
-	objt_CAN_ECM_B11_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_B2_Msg.DLC = 8;
-	objt_CAN_ECM_B2_Msg.StdId = 0x137;
-	objt_CAN_ECM_B2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_B3_Msg.DLC = 8;
-	objt_CAN_ECM_B3_Msg.StdId = 0x127;
-	objt_CAN_ECM_B3_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_B5_Msg.DLC = 8;
-	objt_CAN_ECM_B5_Msg.StdId = 0x279;
-	objt_CAN_ECM_B5_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_B9_Msg.DLC = 8;
-	objt_CAN_ECM_B9_Msg.StdId = 0x157;
-	objt_CAN_ECM_B9_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_CRUISE_MAP_Msg.DLC = 8;
-	objt_CAN_ECM_CRUISE_MAP_Msg.StdId = 0x81;
-	objt_CAN_ECM_CRUISE_MAP_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_DIESEL_Msg.DLC = 8;
-	objt_CAN_ECM_DIESEL_Msg.StdId = 0x12D;
-	objt_CAN_ECM_DIESEL_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ECM_INDICATORS_Msg.DLC = 8;
-	objt_CAN_ECM_INDICATORS_Msg.StdId = 0x13D;
-	objt_CAN_ECM_INDICATORS_Msg.IDE = CAN_ID_STD;
-	objt_CAN_EcuCfg10_Msg.DLC = 8;
-	objt_CAN_EcuCfg10_Msg.StdId = 0x3D7;
-	objt_CAN_EcuCfg10_Msg.IDE = CAN_ID_STD;
-	objt_CAN_EcuCfg12_Msg.DLC = 8;
-	objt_CAN_EcuCfg12_Msg.StdId = 0x3D5;
-	objt_CAN_EcuCfg12_Msg.IDE = CAN_ID_STD;
-	objt_CAN_EcuCfg4_Msg.DLC = 8;
-	objt_CAN_EcuCfg4_Msg.StdId = 0x3F3;
-	objt_CAN_EcuCfg4_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ENG_CFG_Msg.DLC = 7;
-	objt_CAN_ENG_CFG_Msg.StdId = 0x3E1;
-	objt_CAN_ENG_CFG_Msg.IDE = CAN_ID_STD;
-	objt_CAN_EPS_A1_Msg.DLC = 8;
-	objt_CAN_EPS_A1_Msg.StdId = 0x128;
-	objt_CAN_EPS_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ESP_A1_Msg.DLC = 8;
-	objt_CAN_ESP_A1_Msg.StdId = 0x83;
-	objt_CAN_ESP_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ESP_A8_Msg.DLC = 8;
-	objt_CAN_ESP_A8_Msg.StdId = 0x79;
-	objt_CAN_ESP_A8_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ESP_B1_Msg.DLC = 8;
-	objt_CAN_ESP_B1_Msg.StdId = 0xDD;
-	objt_CAN_ESP_B1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_GW_I_C1_Msg.DLC = 8;
-	objt_CAN_GW_I_C1_Msg.StdId = 0x289;
-	objt_CAN_GW_I_C1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_GW_LIN_I_C2_Msg.DLC = 8;
-	objt_CAN_GW_LIN_I_C2_Msg.StdId = 0x281;
-	objt_CAN_GW_LIN_I_C2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_GW_LIN_I_C4_Msg.DLC = 8;
-	objt_CAN_GW_LIN_I_C4_Msg.StdId = 0x25D;
-	objt_CAN_GW_LIN_I_C4_Msg.IDE = CAN_ID_STD;
-	objt_CAN_HCP_C1_Msg.DLC = 8;
-	objt_CAN_HCP_C1_Msg.StdId = 0x13B;
-	objt_CAN_HCP_C1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_HCP_DISP_Msg.DLC = 8;
-	objt_CAN_HCP_DISP_Msg.StdId = 0x1F9;
-	objt_CAN_HCP_DISP_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NAV_DATA_Msg.DLC = 8;
-	objt_CAN_NAV_DATA_Msg.StdId = 0x3BC;
-	objt_CAN_NAV_DATA_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NET_CFG_INT_Msg.DLC = 8;
-	objt_CAN_NET_CFG_INT_Msg.StdId = 0x3E3;
-	objt_CAN_NET_CFG_INT_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NET_CFG_PT_Msg.DLC = 8;
-	objt_CAN_NET_CFG_PT_Msg.StdId = 0x3E4;
-	objt_CAN_NET_CFG_PT_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_CBC_Msg.DLC = 8;
-	objt_CAN_NM_CBC_Msg.StdId = 0x401;
-	objt_CAN_NM_CBC_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_EPS_Msg.DLC = 8;
-	objt_CAN_NM_EPS_Msg.StdId = 0x41A;
-	objt_CAN_NM_EPS_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_ESC_Msg.DLC = 8;
-	objt_CAN_NM_ESC_Msg.StdId = 0x407;
-	objt_CAN_NM_ESC_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_ESL_Msg.DLC = 8;
-	objt_CAN_NM_ESL_Msg.StdId = 0x408;
-	objt_CAN_NM_ESL_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_HCP_Msg.DLC = 8;
-	objt_CAN_NM_HCP_Msg.StdId = 0x43A;
-	objt_CAN_NM_HCP_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_IC_Msg.DLC = 8;
-	objt_CAN_NM_IC_Msg.StdId = 0x402;
-	objt_CAN_NM_IC_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_RF_HUB_Msg.DLC = 8;
-	objt_CAN_NM_RF_HUB_Msg.StdId = 0x400;
-	objt_CAN_NM_RF_HUB_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_SBWM_Msg.DLC = 8;
-	objt_CAN_NM_SBWM_Msg.StdId = 0x409;
-	objt_CAN_NM_SBWM_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_SCCM_Msg.DLC = 8;
-	objt_CAN_NM_SCCM_Msg.StdId = 0x423;
-	objt_CAN_NM_SCCM_Msg.IDE = CAN_ID_STD;
-	objt_CAN_NM_TPM_Msg.DLC = 8;
-	objt_CAN_NM_TPM_Msg.StdId = 0x403;
-	objt_CAN_NM_TPM_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ORC_A1_Msg.DLC = 8;
-	objt_CAN_ORC_A1_Msg.StdId = 0x1D0;
-	objt_CAN_ORC_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_ORC_A3_Msg.DLC = 8;
-	objt_CAN_ORC_A3_Msg.StdId = 0x257;
-	objt_CAN_ORC_A3_Msg.IDE = CAN_ID_STD;
-	objt_CAN_PN14_STAT_Msg.DLC = 8;
-	objt_CAN_PN14_STAT_Msg.StdId = 0x248;
-	objt_CAN_PN14_STAT_Msg.IDE = CAN_ID_STD;
-	objt_CAN_PTS_1_Msg.DLC = 8;
-	objt_CAN_PTS_1_Msg.StdId = 0x1F6;
-	objt_CAN_PTS_1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_PTS_2_Msg.DLC = 8;
-	objt_CAN_PTS_2_Msg.StdId = 0x1E9;
-	objt_CAN_PTS_2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_RFHUB_A2_Msg.DLC = 6;
-	objt_CAN_RFHUB_A2_Msg.StdId = 0x1C0;
-	objt_CAN_RFHUB_A2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_RFHUB_A3_Msg.DLC = 8;
-	objt_CAN_RFHUB_A3_Msg.StdId = 0x2A7;
-	objt_CAN_RFHUB_A3_Msg.IDE = CAN_ID_STD;
-	objt_CAN_SBW_ROT1_Msg.DLC = 5;
-	objt_CAN_SBW_ROT1_Msg.StdId = 0xAD;
-	objt_CAN_SBW_ROT1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_SCCM_STW_ANGL_STAT_Msg.DLC = 8;
-	objt_CAN_SCCM_STW_ANGL_STAT_Msg.StdId = 0x23;
-	objt_CAN_SCCM_STW_ANGL_STAT_Msg.IDE = CAN_ID_STD;
-	objt_CAN_STATUS_C_PTS_Msg.DLC = 8;
-	objt_CAN_STATUS_C_PTS_Msg.StdId = 0x1EB;
-	objt_CAN_STATUS_C_PTS_Msg.IDE = CAN_ID_STD;
-	objt_CAN_SWS_8_Msg.DLC = 8;
-	objt_CAN_SWS_8_Msg.StdId = 0x22D;
-	objt_CAN_SWS_8_Msg.IDE = CAN_ID_STD;
-	objt_CAN_TCM_A7_Msg.DLC = 8;
-	objt_CAN_TCM_A7_Msg.StdId = 0xAB;
-	objt_CAN_TCM_A7_Msg.IDE = CAN_ID_STD;
-	objt_CAN_TGW_DATA_IC_Msg.DLC = 8;
-	objt_CAN_TGW_DATA_IC_Msg.StdId = 0x328;
-	objt_CAN_TGW_DATA_IC_Msg.IDE = CAN_ID_STD;
-	objt_CAN_TPM_A1_Msg.DLC = 8;
-	objt_CAN_TPM_A1_Msg.StdId = 0x296;
-	objt_CAN_TPM_A1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_TRNS_SPD_Msg.DLC = 8;
-	objt_CAN_TRNS_SPD_Msg.StdId = 0x85;
-	objt_CAN_TRNS_SPD_Msg.IDE = CAN_ID_STD;
-	objt_CAN_TRNS_STAT_Msg.DLC = 8;
-	objt_CAN_TRNS_STAT_Msg.StdId = 0x93;
-	objt_CAN_TRNS_STAT_Msg.IDE = CAN_ID_STD;
-	objt_CAN_TRNS_STAT2_Msg.DLC = 3;
-	objt_CAN_TRNS_STAT2_Msg.StdId = 0x125;
-	objt_CAN_TRNS_STAT2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfg1_Msg.DLC = 8;
-	objt_CAN_VehCfg1_Msg.StdId = 0x3E8;
-	objt_CAN_VehCfg1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfg2_Msg.DLC = 8;
-	objt_CAN_VehCfg2_Msg.StdId = 0x3E9;
-	objt_CAN_VehCfg2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfg3_Msg.DLC = 8;
-	objt_CAN_VehCfg3_Msg.StdId = 0x3EA;
-	objt_CAN_VehCfg3_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfg5_Msg.DLC = 8;
-	objt_CAN_VehCfg5_Msg.StdId = 0x44A;
-	objt_CAN_VehCfg5_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfg6_Msg.DLC = 8;
-	objt_CAN_VehCfg6_Msg.StdId = 0x44C;
-	objt_CAN_VehCfg6_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfg7_Msg.DLC = 8;
-	objt_CAN_VehCfg7_Msg.StdId = 0x381;
-	objt_CAN_VehCfg7_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfg8_Msg.DLC = 8;
-	objt_CAN_VehCfg8_Msg.StdId = 0x38A;
-	objt_CAN_VehCfg8_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfgCSM1_Msg.DLC = 8;
-	objt_CAN_VehCfgCSM1_Msg.StdId = 0x3B3;
-	objt_CAN_VehCfgCSM1_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VehCfgCSM2_Msg.DLC = 8;
-	objt_CAN_VehCfgCSM2_Msg.StdId = 0x3B4;
-	objt_CAN_VehCfgCSM2_Msg.IDE = CAN_ID_STD;
-	objt_CAN_VIN_Msg.DLC = 8;
-	objt_CAN_VIN_Msg.StdId = 0x3E0;
-	objt_CAN_VIN_Msg.IDE = CAN_ID_STD;
+//	periodicID[CBC_PT2] = 0x77;
+//	periodicLength[CBC_PT2] = 2;
 
+	periodicLength[CAN_AMB_TEMP_DISP] = 4;
+	periodicID[CAN_AMB_TEMP_DISP] = 0x3C9;
+	periodicData[CAN_AMB_TEMP_DISP] = m_abyte_AMB_TEMP_DISP_Msg;
 
-for (int i = 0; i < 8; i++)
-{
-	objt_CAN_AMB_TEMP_DISP_Msg.Data[i] = m_abyte_AMB_TEMP_DISP_Msg[i];
-	objt_CAN_APPL_ECU_IC_Msg.Data[i] = m_abyte_APPL_ECU_IC_Msg[i];
-	objt_CAN_ASBS_1_Msg.Data[i] = m_abyte_ASBS_1_Msg[i];
-	objt_CAN_BSM_A1_Msg.Data[i] = m_abyte_BSM_A1_Msg[i];
-	objt_CAN_CBC_PT1_Msg.Data[i] = m_abyte_CBC_PT1_Msg[i];
-	objt_CAN_CBC_PT10_Msg.Data[i] = m_abyte_CBC_PT10_Msg[i];
-	objt_CAN_CBC_PT2_Msg.Data[i] = m_abyte_CBC_PT2_Msg[i];
-	objt_CAN_CBC_PT3_Msg.Data[i] = m_abyte_CBC_PT3_Msg[i];
-	objt_CAN_CBC_PT4_Msg.Data[i] = m_abyte_CBC_PT4_Msg[i];
-	objt_CAN_CBC_PT8_Msg.Data[i] = m_abyte_CBC_PT8_Msg[i];
-	objt_CAN_CBC_PT9_Msg.Data[i] = m_abyte_CBC_PT9_Msg[i];
-	objt_CAN_CFG_RQ_Msg.Data[i] = m_abyte_CFG_RQ_Msg[i];
-	objt_CAN_Clock_Date_Msg.Data[i] = m_abyte_Clock_Date_Msg[i];
-	objt_CAN_COMPASS_A1_Msg.Data[i] = m_abyte_COMPASS_A1_Msg[i];
-	objt_CAN_D_RQ_IC_Msg.Data[i] = m_abyte_D_RQ_IC_Msg[i];
-	objt_CAN_DG_RQ_GLOBAL_UDS_Msg.Data[i] = m_abyte_DG_RQ_GLOBAL_UDS_Msg[i];
-	objt_CAN_DIRECT_INFO_Msg.Data[i] = m_abyte_DIRECT_INFO_Msg[i];
-	objt_CAN_DTCM_A1_Msg.Data[i] = m_abyte_DTCM_A1_Msg[i];
-	objt_CAN_DTCM_B1_Msg.Data[i] = m_abyte_DTCM_B1_Msg[i];
-	objt_CAN_ECM_A1_Msg.Data[i] = m_abyte_ECM_A1_Msg[i];
-	objt_CAN_ECM_A3_Msg.Data[i] = m_abyte_ECM_A3_Msg[i];
-	objt_CAN_ECM_B11_Msg.Data[i] = m_abyte_ECM_B11_Msg[i];
-	objt_CAN_ECM_B2_Msg.Data[i] = m_abyte_ECM_B2_Msg[i];
-	objt_CAN_ECM_B3_Msg.Data[i] = m_abyte_ECM_B3_Msg[i];
-	objt_CAN_ECM_B5_Msg.Data[i] = m_abyte_ECM_B5_Msg[i];
-	objt_CAN_ECM_B9_Msg.Data[i] = m_abyte_ECM_B9_Msg[i];
-	objt_CAN_ECM_CRUISE_MAP_Msg.Data[i] = m_abyte_ECM_CRUISE_MAP_Msg[i];
-	objt_CAN_ECM_DIESEL_Msg.Data[i] = m_abyte_ECM_DIESEL_Msg[i];
-	objt_CAN_ECM_INDICATORS_Msg.Data[i] = m_abyte_ECM_INDICATORS_Msg[i];
-	objt_CAN_EcuCfg10_Msg.Data[i] = m_abyte_EcuCfg10_Msg[i];
-	objt_CAN_EcuCfg12_Msg.Data[i] = m_abyte_EcuCfg12_Msg[i];
-	objt_CAN_EcuCfg4_Msg.Data[i] = m_abyte_EcuCfg4_Msg[i];
-	objt_CAN_ENG_CFG_Msg.Data[i] = m_abyte_ENG_CFG_Msg[i];
-	objt_CAN_EPS_A1_Msg.Data[i] = m_abyte_EPS_A1_Msg[i];
-	objt_CAN_ESP_A1_Msg.Data[i] = m_abyte_ESP_A1_Msg[i];
-	objt_CAN_ESP_A8_Msg.Data[i] = m_abyte_ESP_A8_Msg[i];
-	objt_CAN_ESP_B1_Msg.Data[i] = m_abyte_ESP_B1_Msg[i];
-	objt_CAN_GW_I_C1_Msg.Data[i] = m_abyte_GW_I_C1_Msg[i];
-	objt_CAN_GW_LIN_I_C2_Msg.Data[i] = m_abyte_GW_LIN_I_C2_Msg[i];
-	objt_CAN_GW_LIN_I_C4_Msg.Data[i] = m_abyte_GW_LIN_I_C4_Msg[i];
-	objt_CAN_HCP_C1_Msg.Data[i] = m_abyte_HCP_C1_Msg[i];
-	objt_CAN_HCP_DISP_Msg.Data[i] = m_abyte_HCP_DISP_Msg[i];
-	objt_CAN_NAV_DATA_Msg.Data[i] = m_abyte_NAV_DATA_Msg[i];
-	objt_CAN_NET_CFG_INT_Msg.Data[i] = m_abyte_NET_CFG_INT_Msg[i];
-	objt_CAN_NET_CFG_PT_Msg.Data[i] = m_abyte_NET_CFG_PT_Msg[i];
-	objt_CAN_NM_CBC_Msg.Data[i] = m_abyte_NM_CBC_Msg[i];
-	objt_CAN_NM_EPS_Msg.Data[i] = m_abyte_NM_EPS_Msg[i];
-	objt_CAN_NM_ESC_Msg.Data[i] = m_abyte_NM_ESC_Msg[i];
-	objt_CAN_NM_ESL_Msg.Data[i] = m_abyte_NM_ESL_Msg[i];
-	objt_CAN_NM_HCP_Msg.Data[i] = m_abyte_NM_HCP_Msg[i];
-	objt_CAN_NM_IC_Msg.Data[i] = m_abyte_NM_IC_Msg[i];
-	objt_CAN_NM_RF_HUB_Msg.Data[i] = m_abyte_NM_RF_HUB_Msg[i];
-	objt_CAN_NM_SBWM_Msg.Data[i] = m_abyte_NM_SBWM_Msg[i];
-	objt_CAN_NM_SCCM_Msg.Data[i] = m_abyte_NM_SCCM_Msg[i];
-	objt_CAN_NM_TPM_Msg.Data[i] = m_abyte_NM_TPM_Msg[i];
-	objt_CAN_ORC_A1_Msg.Data[i] = m_abyte_ORC_A1_Msg[i];
-	objt_CAN_ORC_A3_Msg.Data[i] = m_abyte_ORC_A3_Msg[i];
-	objt_CAN_PN14_STAT_Msg.Data[i] = m_abyte_PN14_STAT_Msg[i];
-	objt_CAN_PTS_1_Msg.Data[i] = m_abyte_PTS_1_Msg[i];
-	objt_CAN_PTS_2_Msg.Data[i] = m_abyte_PTS_2_Msg[i];
-	objt_CAN_RFHUB_A2_Msg.Data[i] = m_abyte_RFHUB_A2_Msg[i];
-	objt_CAN_RFHUB_A3_Msg.Data[i] = m_abyte_RFHUB_A3_Msg[i];
-	objt_CAN_SBW_ROT1_Msg.Data[i] = m_abyte_SBW_ROT1_Msg[i];
-	objt_CAN_SCCM_STW_ANGL_STAT_Msg.Data[i] = m_abyte_SCCM_STW_ANGL_STAT_Msg[i];
-	objt_CAN_STATUS_C_PTS_Msg.Data[i] = m_abyte_STATUS_C_PTS_Msg[i];
-	objt_CAN_SWS_8_Msg.Data[i] = m_abyte_SWS_8_Msg[i];
-	objt_CAN_TCM_A7_Msg.Data[i] = m_abyte_TCM_A7_Msg[i];
-	objt_CAN_TGW_DATA_IC_Msg.Data[i] = m_abyte_TGW_DATA_IC_Msg[i];
-	objt_CAN_TPM_A1_Msg.Data[i] = m_abyte_TPM_A1_Msg[i];
-	objt_CAN_TRNS_SPD_Msg.Data[i] = m_abyte_TRNS_SPD_Msg[i];
-	objt_CAN_TRNS_STAT_Msg.Data[i] = m_abyte_TRNS_STAT_Msg[i];
-	objt_CAN_TRNS_STAT2_Msg.Data[i] = m_abyte_TRNS_STAT2_Msg[i];
-	objt_CAN_VehCfg1_Msg.Data[i] = m_abyte_VehCfg1_Msg[i];
-	objt_CAN_VehCfg2_Msg.Data[i] = m_abyte_VehCfg2_Msg[i];
-	objt_CAN_VehCfg3_Msg.Data[i] = m_abyte_VehCfg3_Msg[i];
-	objt_CAN_VehCfg5_Msg.Data[i] = m_abyte_VehCfg5_Msg[i];
-	objt_CAN_VehCfg6_Msg.Data[i] = m_abyte_VehCfg6_Msg[i];
-	objt_CAN_VehCfg7_Msg.Data[i] = m_abyte_VehCfg7_Msg[i];
-	objt_CAN_VehCfg8_Msg.Data[i] = m_abyte_VehCfg8_Msg[i];
-	objt_CAN_VehCfgCSM1_Msg.Data[i] = m_abyte_VehCfgCSM1_Msg[i];
-	objt_CAN_VehCfgCSM2_Msg.Data[i] = m_abyte_VehCfgCSM2_Msg[i];
-	objt_CAN_VIN_Msg.Data[i] = m_abyte_VIN_Msg[i];
-}
+	periodicLength[CAN_APPL_ECU_IC] = 8;
+	periodicID[CAN_APPL_ECU_IC] = 0x6C2;
+	periodicData[CAN_APPL_ECU_IC] = m_abyte_APPL_ECU_IC_Msg;
+
+	periodicLength[CAN_ASBS_1] = 8;
+	periodicID[CAN_ASBS_1] = 0x371;
+	periodicData[CAN_ASBS_1] = m_abyte_ASBS_1_Msg;
+
+	periodicLength[CAN_BSM_A1] = 6;
+	periodicID[CAN_BSM_A1] = 0x2D0;
+	periodicData[CAN_BSM_A1] = m_abyte_BSM_A1_Msg;
+
+	periodicLength[CAN_CBC_PT1] = 8;
+	periodicID[CAN_CBC_PT1] = 0x291;
+	periodicData[CAN_CBC_PT1] = m_abyte_CBC_PT1_Msg;
+
+	periodicLength[CAN_CBC_PT10] = 8;
+	periodicID[CAN_CBC_PT10] = 0x265;
+	periodicData[CAN_CBC_PT10] = m_abyte_CBC_PT10_Msg;
+
+	periodicLength[CAN_CBC_PT2] = 2;
+	periodicID[CAN_CBC_PT2] = 0x77;
+	periodicData[CAN_CBC_PT2] = m_abyte_CBC_PT2_Msg;
+
+	periodicLength[CAN_CBC_PT3] = 8;
+	periodicID[CAN_CBC_PT3] = 0x12B;
+	periodicData[CAN_CBC_PT3] = m_abyte_CBC_PT3_Msg;
+
+	periodicLength[CAN_CBC_PT4] = 8;
+	periodicID[CAN_CBC_PT4] = 0x283;
+	periodicData[CAN_CBC_PT4] = m_abyte_CBC_PT4_Msg;
+
+	periodicLength[CAN_CBC_PT8] = 8;
+	periodicID[CAN_CBC_PT8] = 0x25F;
+	periodicData[CAN_CBC_PT8] = m_abyte_CBC_PT8_Msg;
+
+	periodicLength[CAN_CBC_PT9] = 8;
+	periodicID[CAN_CBC_PT9] = 0x13F;
+	periodicData[CAN_CBC_PT9] = m_abyte_CBC_PT9_Msg;
+
+	periodicLength[CAN_CFG_RQ] = 3;
+	periodicID[CAN_CFG_RQ] = 0x314;
+	periodicData[CAN_CFG_RQ] = m_abyte_CFG_RQ_Msg;
+
+	periodicLength[CAN_Clock_Date] = 8;
+	periodicID[CAN_Clock_Date] = 0x350;
+	periodicData[CAN_Clock_Date] = m_abyte_Clock_Date_Msg;
+
+	periodicLength[CAN_COMPASS_A1] = 4;
+	periodicID[CAN_COMPASS_A1] = 0x358;
+	periodicData[CAN_COMPASS_A1] = m_abyte_COMPASS_A1_Msg;
+
+	periodicLength[CAN_D_RQ_IC] = 8;
+	periodicID[CAN_D_RQ_IC] = 0x742;
+	periodicData[CAN_D_RQ_IC] = m_abyte_D_RQ_IC_Msg;
+
+	periodicLength[CAN_DG_RQ_GLOBAL_UDS] = 8;
+	periodicID[CAN_DG_RQ_GLOBAL_UDS] = 0x441;
+	periodicData[CAN_DG_RQ_GLOBAL_UDS] = m_abyte_DG_RQ_GLOBAL_UDS_Msg;
+
+	periodicLength[CAN_DIRECT_INFO] = 6;
+	periodicID[CAN_DIRECT_INFO] = 0x35C;
+	periodicData[CAN_DIRECT_INFO] = m_abyte_DIRECT_INFO_Msg;
+
+	periodicLength[CAN_DTCM_A1] = 8;
+	periodicID[CAN_DTCM_A1] = 0x8D;
+	periodicData[CAN_DTCM_A1] = m_abyte_DTCM_A1_Msg;
+
+	periodicLength[CAN_DTCM_B1] = 8;
+	periodicID[CAN_DTCM_B1] = 0x277;
+	periodicData[CAN_DTCM_B1] = m_abyte_DTCM_B1_Msg;
+
+	periodicLength[CAN_ECM_A1] = 8;
+	periodicID[CAN_ECM_A1] = 0x25;
+	periodicData[CAN_ECM_A1] = m_abyte_ECM_A1_Msg;
+
+	periodicLength[CAN_ECM_A3] = 8;
+	periodicID[CAN_ECM_A3] = 0x35;
+	periodicData[CAN_ECM_A3] = m_abyte_ECM_A3_Msg;
+
+	periodicLength[CAN_ECM_B11] = 8;
+	periodicID[CAN_ECM_B11] = 0x2A4;
+	periodicData[CAN_ECM_B11] = m_abyte_ECM_B11_Msg;
+
+	periodicLength[CAN_ECM_B2] = 8;
+	periodicID[CAN_ECM_B2] = 0x137;
+	periodicData[CAN_ECM_B2] = m_abyte_ECM_B2_Msg;
+
+	periodicLength[CAN_ECM_B3] = 8;
+	periodicID[CAN_ECM_B3] = 0x127;
+	periodicData[CAN_ECM_B3] = m_abyte_ECM_B3_Msg;
+
+	periodicLength[CAN_ECM_B5] = 8;
+	periodicID[CAN_ECM_B5] = 0x279;
+	periodicData[CAN_ECM_B5] = m_abyte_ECM_B5_Msg;
+
+	periodicLength[CAN_ECM_B9] = 8;
+	periodicID[CAN_ECM_B9] = 0x157;
+	periodicData[CAN_ECM_B9] = m_abyte_ECM_B9_Msg;
+
+	periodicLength[CAN_ECM_CRUISE_MAP] = 8;
+	periodicID[CAN_ECM_CRUISE_MAP] = 0x81;
+	periodicData[CAN_ECM_CRUISE_MAP] = m_abyte_ECM_CRUISE_MAP_Msg;
+
+	periodicLength[CAN_ECM_DIESEL] = 8;
+	periodicID[CAN_ECM_DIESEL] = 0x12D;
+	periodicData[CAN_ECM_DIESEL] = m_abyte_ECM_DIESEL_Msg;
+
+	periodicLength[CAN_ECM_INDICATORS] = 8;
+	periodicID[CAN_ECM_INDICATORS] = 0x13D;
+	periodicData[CAN_ECM_INDICATORS] = m_abyte_ECM_INDICATORS_Msg;
+
+	periodicLength[CAN_EcuCfg10] = 8;
+	periodicID[CAN_EcuCfg10] = 0x3D7;
+	periodicData[CAN_EcuCfg10] = m_abyte_EcuCfg10_Msg;
+
+	periodicLength[CAN_EcuCfg12] = 8;
+	periodicID[CAN_EcuCfg12] = 0x3D5;
+	periodicData[CAN_EcuCfg12] = m_abyte_EcuCfg12_Msg;
+
+	periodicLength[CAN_EcuCfg4] = 8;
+	periodicID[CAN_EcuCfg4] = 0x3F3;
+	periodicData[CAN_EcuCfg4] = m_abyte_EcuCfg4_Msg;
+
+	periodicLength[CAN_ENG_CFG] = 7;
+	periodicID[CAN_ENG_CFG] = 0x3E1;
+	periodicData[CAN_ENG_CFG] = m_abyte_ENG_CFG_Msg;
+
+	periodicLength[CAN_EPS_A1] = 8;
+	periodicID[CAN_EPS_A1] = 0x128;
+	periodicData[CAN_EPS_A1] = m_abyte_EPS_A1_Msg;
+
+	periodicLength[CAN_ESP_A1] = 8;
+	periodicID[CAN_ESP_A1] = 0x83;
+	periodicData[CAN_ESP_A1] = m_abyte_ESP_A1_Msg;
+
+	periodicLength[CAN_ESP_A8] = 8;
+	periodicID[CAN_ESP_A8] = 0x79;
+	periodicData[CAN_ESP_A8] = m_abyte_ESP_A8_Msg;
+
+	periodicLength[CAN_ESP_B1] = 8;
+	periodicID[CAN_ESP_B1] = 0xDD;
+	periodicData[CAN_ESP_B1] = m_abyte_ESP_B1_Msg;
+
+	periodicLength[CAN_GW_I_C1] = 8;
+	periodicID[CAN_GW_I_C1] = 0x289;
+	periodicData[CAN_GW_I_C1] = m_abyte_GW_I_C1_Msg;
+
+	periodicLength[CAN_GW_LIN_I_C2] = 8;
+	periodicID[CAN_GW_LIN_I_C2] = 0x281;
+	periodicData[CAN_GW_LIN_I_C2] = m_abyte_GW_LIN_I_C2_Msg;
+
+	periodicLength[CAN_GW_LIN_I_C4] = 8;
+	periodicID[CAN_GW_LIN_I_C4] = 0x25D;
+	periodicData[CAN_GW_LIN_I_C4] = m_abyte_GW_LIN_I_C4_Msg;
+
+	periodicLength[CAN_HCP_C1] = 8;
+	periodicID[CAN_HCP_C1] = 0x13B;
+	periodicData[CAN_HCP_C1] = m_abyte_HCP_C1_Msg;
+
+	periodicLength[CAN_HCP_DISP] = 8;
+	periodicID[CAN_HCP_DISP] = 0x1F9;
+	periodicData[CAN_HCP_C1] = m_abyte_HCP_C1_Msg;
+
+	periodicLength[CAN_NAV_DATA] = 8;
+	periodicID[CAN_NAV_DATA] = 0x3BC;
+	periodicData[CAN_NAV_DATA] = m_abyte_NAV_DATA_Msg;
+
+	periodicLength[CAN_NET_CFG_INT] = 8;
+	periodicID[CAN_NET_CFG_INT] = 0x3E3;
+	periodicData[CAN_NAV_DATA] = m_abyte_NAV_DATA_Msg;
+
+	periodicLength[CAN_NET_CFG_PT] = 8;
+	periodicID[CAN_NET_CFG_PT] = 0x3E4;
+	periodicData[CAN_NET_CFG_PT] = m_abyte_NET_CFG_PT_Msg;
+
+	periodicLength[CAN_NM_CBC] = 8;
+	periodicID[CAN_NM_CBC] = 0x401;
+	periodicData[CAN_NM_CBC] = m_abyte_NM_CBC_Msg;
+
+	periodicLength[CAN_NM_EPS] = 8;
+	periodicID[CAN_NM_EPS] = 0x41A;
+	periodicData[CAN_NM_EPS] = m_abyte_NM_EPS_Msg;
+
+	periodicLength[CAN_NM_ESC] = 8;
+	periodicID[CAN_NM_ESC] = 0x407;
+	periodicData[CAN_NM_ESC] = m_abyte_NM_ESC_Msg;
+
+	periodicLength[CAN_NM_ESL] = 8;
+	periodicID[CAN_NM_ESL] = 0x408;
+	periodicData[CAN_NM_ESL] = m_abyte_NM_ESL_Msg;
+
+	periodicLength[CAN_NM_HCP] = 8;
+	periodicID[CAN_NM_HCP] = 0x43A;
+	periodicData[CAN_NM_HCP] = m_abyte_NM_HCP_Msg;
+
+	periodicLength[CAN_NM_IC] = 8;
+	periodicID[CAN_NM_IC] = 0x402;
+	periodicData[CAN_NM_IC] = m_abyte_NM_IC_Msg;
+
+	periodicLength[CAN_NM_RF_HUB] = 8;
+	periodicID[CAN_NM_RF_HUB] = 0x400;
+	periodicData[CAN_NM_RF_HUB] = m_abyte_NM_RF_HUB_Msg;
+
+	periodicLength[CAN_NM_SBWM] = 8;
+	periodicID[CAN_NM_SBWM] = 0x409;
+	periodicData[CAN_NM_SBWM] = m_abyte_NM_SBWM_Msg;
+
+	periodicLength[CAN_NM_SCCM] = 8;
+	periodicID[CAN_NM_SCCM] = 0x423;
+	periodicData[CAN_NM_SCCM] = m_abyte_NM_SCCM_Msg;
+
+	periodicLength[CAN_NM_TPM] = 8;
+	periodicID[CAN_NM_TPM] = 0x403;
+	periodicData[CAN_NM_TPM] = m_abyte_NM_TPM_Msg;
+
+	periodicLength[CAN_ORC_A1] = 8;
+	periodicID[CAN_ORC_A1] = 0x1D0;
+	periodicData[CAN_ORC_A1] = m_abyte_ORC_A1_Msg;
+
+	periodicLength[CAN_ORC_A3] = 8;
+	periodicID[CAN_ORC_A3] = 0x257;
+	periodicData[CAN_ORC_A3] = m_abyte_ORC_A3_Msg;
+
+	periodicLength[CAN_PN14_STAT] = 8;
+	periodicID[CAN_PN14_STAT] = 0x248;
+	periodicData[CAN_PN14_STAT] = m_abyte_PN14_STAT_Msg;
+
+	periodicLength[CAN_PTS_1] = 8;
+	periodicID[CAN_PTS_1] = 0x1F6;
+	periodicData[CAN_PTS_1] = m_abyte_PTS_1_Msg;
+
+	periodicLength[CAN_PTS_2] = 8;
+	periodicID[CAN_PTS_2] = 0x1E9;
+	periodicData[CAN_PTS_2] = m_abyte_PTS_2_Msg;
+
+	periodicLength[CAN_RFHUB_A2] = 6;
+	periodicID[CAN_RFHUB_A2] = 0x1C0;
+	periodicData[CAN_RFHUB_A2] = m_abyte_RFHUB_A2_Msg;
+
+	periodicLength[CAN_RFHUB_A3] = 8;
+	periodicID[CAN_RFHUB_A3] = 0x2A7;
+	periodicData[CAN_RFHUB_A3] = m_abyte_RFHUB_A3_Msg;
+
+	periodicLength[CAN_SBW_ROT1] = 5;
+	periodicID[CAN_SBW_ROT1] = 0xAD;
+	periodicData[CAN_SBW_ROT1] = m_abyte_SBW_ROT1_Msg;
+
+	periodicLength[CAN_SCCM_STW_ANGL_STAT] = 8;
+	periodicID[CAN_SCCM_STW_ANGL_STAT] = 0x23;
+	periodicData[CAN_SCCM_STW_ANGL_STAT] = m_abyte_SCCM_STW_ANGL_STAT_Msg;
+
+	periodicLength[CAN_STATUS_C_PTS] = 8;
+	periodicID[CAN_STATUS_C_PTS] = 0x1EB;
+	periodicData[CAN_STATUS_C_PTS] = m_abyte_STATUS_C_PTS_Msg;
+
+	periodicLength[CAN_SWS_8] = 8;
+	periodicID[CAN_SWS_8] = 0x22D;
+	periodicData[CAN_SWS_8] = m_abyte_SWS_8_Msg;
+
+	periodicLength[CAN_TCM_A7] = 8;
+	periodicID[CAN_TCM_A7] = 0xAB;
+	periodicData[CAN_TCM_A7] = m_abyte_TCM_A7_Msg;
+
+	periodicLength[CAN_TGW_DATA_IC] = 8;
+	periodicID[CAN_TGW_DATA_IC] = 0x328;
+	periodicData[CAN_TGW_DATA_IC] = m_abyte_TGW_DATA_IC_Msg;
+
+	periodicLength[CAN_TPM_A1] = 8;
+	periodicID[CAN_TPM_A1] = 0x296;
+	periodicData[CAN_TPM_A1] = m_abyte_TPM_A1_Msg;
+
+	periodicLength[CAN_TRNS_SPD] = 8;
+	periodicID[CAN_TRNS_SPD] = 0x85;
+	periodicData[CAN_TRNS_SPD] = m_abyte_TRNS_SPD_Msg;
+
+	periodicLength[CAN_TRNS_STAT] = 8;
+	periodicID[CAN_TRNS_STAT] = 0x93;
+	periodicData[CAN_TRNS_STAT] = m_abyte_TRNS_STAT_Msg;
+
+	periodicLength[CAN_TRNS_STAT2] = 3;
+	periodicID[CAN_TRNS_STAT2] = 0x125;
+	periodicData[CAN_TRNS_STAT2] = m_abyte_TRNS_STAT2_Msg;
+
+	periodicLength[CAN_VehCfg1] = 8;
+	periodicID[CAN_VehCfg1] = 0x3E8;
+	periodicData[CAN_VehCfg1] = m_abyte_VehCfg1_Msg;
+
+	periodicLength[CAN_VehCfg2] = 8;
+	periodicID[CAN_VehCfg2] = 0x3E9;
+	periodicData[CAN_VehCfg2] = m_abyte_VehCfg2_Msg;
+
+	periodicLength[CAN_VehCfg3] = 8;
+	periodicID[CAN_VehCfg3] = 0x3EA;
+	periodicData[CAN_VehCfg3] = m_abyte_VehCfg3_Msg;
+
+	periodicLength[CAN_VehCfg5] = 8;
+	periodicID[CAN_VehCfg5] = 0x44A;
+	periodicData[CAN_VehCfg5] = m_abyte_VehCfg5_Msg;
+
+	periodicLength[CAN_VehCfg6] = 8;
+	periodicID[CAN_VehCfg6] = 0x44C;
+	periodicData[CAN_VehCfg6] = m_abyte_VehCfg6_Msg;
+
+	periodicLength[CAN_VehCfg7] = 8;
+	periodicID[CAN_VehCfg7] = 0x381;
+	periodicData[CAN_VehCfg7] = m_abyte_VehCfg7_Msg;
+
+	periodicLength[CAN_VehCfg8] = 8;
+	periodicID[CAN_VehCfg8] = 0x38A;
+	periodicData[CAN_VehCfg8] = m_abyte_VehCfg8_Msg;
+
+	periodicLength[CAN_VehCfgCSM1] = 8;
+	periodicID[CAN_VehCfgCSM1] = 0x3B3;
+	periodicData[CAN_VehCfgCSM1] = m_abyte_VehCfgCSM1_Msg;
+
+	periodicLength[CAN_VehCfgCSM2] = 8;
+	periodicID[CAN_VehCfgCSM2] = 0x3B4;
+	periodicData[CAN_VehCfgCSM2] = m_abyte_VehCfgCSM2_Msg;
+
+	periodicLength[CAN_VIN] = 8;
+	periodicID[CAN_VIN] = 0x3E0;
+	periodicData[CAN_VIN] = m_abyte_VIN_Msg;
 }
 
 osTimerId timer;

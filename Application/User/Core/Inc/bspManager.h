@@ -28,6 +28,9 @@ enum {
 #define SPIx_SCK_PIN                     GPIO_PIN_12
 #define SPIx_SCK_GPIO_PORT               GPIOA
 #define SPIx_SCK_AF                      GPIO_AF5_SPI2
+#define SPIx_NSS_PIN                     GPIO_PIN_11
+#define SPIx_NSS_GPIO_PORT               GPIOA
+#define SPIx_NSS_AF                      GPIO_AF5_SPI2
 #define SPIx_MISO_PIN                    GPIO_PIN_14
 #define SPIx_MISO_GPIO_PORT              GPIOB
 #define SPIx_MISO_AF                     GPIO_AF5_SPI2
@@ -53,6 +56,12 @@ enum {
 #define SPIx_DMA_RX_IRQHandler           DMA1_Stream3_IRQHandler
 
 void bspManagerInit(void);
+
+void SPI_Resume(void);
+void SPI_Pause(void);
+void SPI_Receive(uint8_t* address, int size);
+
+void CAN_Send(uint32_t ID, uint32_t length, uint8_t* message);
 void touchUpdate(void);
 
 #endif /*__K_BSP_H */

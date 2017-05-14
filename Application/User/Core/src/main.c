@@ -107,7 +107,7 @@ static void setupTheme(void)
 	LISTVIEW_SetDefaultGridColor(GUI_WHITE);
 	LISTVIEW_SetDefaultFont(&GUI_Font20_ASCII);
 
-	SCROLLBAR_SetDefaultWidth(36);
+	SCROLLBAR_SetDefaultWidth(44);
 
 	HEADER_SetDefaultBkColor(GUI_LIGHTBLUE);
 	HEADER_SetDefaultTextColor(GUI_WHITE);

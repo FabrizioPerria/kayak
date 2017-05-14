@@ -9,6 +9,9 @@ TS_StateTypeDef  TS_State = {0};
 CAN_HandleTypeDef hcan1;
 SPI_HandleTypeDef SpiHandle;
 
+//Data types
+CanTxMsgTypeDef msg;
+
 /* DMA transfer state */
 uint32_t wTransferState = TRANSFER_WAIT;
 
@@ -66,19 +69,33 @@ static void SPI_Init(){
 //	SpiHandle.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
 	SpiHandle.Init.Direction         = SPI_DIRECTION_2LINES;
 	SpiHandle.Init.CLKPhase          = SPI_PHASE_1EDGE;
-	SpiHandle.Init.CLKPolarity       = SPI_POLARITY_HIGH;
+	SpiHandle.Init.CLKPolarity       = SPI_POLARITY_LOW;
 	SpiHandle.Init.DataSize          = SPI_DATASIZE_8BIT;
 	SpiHandle.Init.FirstBit          = SPI_FIRSTBIT_MSB;
 	SpiHandle.Init.TIMode            = SPI_TIMODE_DISABLE;
 	SpiHandle.Init.CRCCalculation    = SPI_CRCCALCULATION_DISABLE;
 	SpiHandle.Init.CRCPolynomial     = 7;
-	SpiHandle.Init.NSS               = SPI_NSS_SOFT;
+	SpiHandle.Init.NSS               = SPI_NSS_HARD_INPUT;
 	SpiHandle.Init.Mode = SPI_MODE_SLAVE;
 	HAL_Delay(5);
 	if(HAL_SPI_Init(&SpiHandle) != HAL_OK)
 		ErrorHandler();
 }
 
+void SPI_Resume(void)
+{
+	HAL_SPI_DMAResume(&SpiHandle);
+}
+
+void SPI_Pause(void)
+{
+	HAL_SPI_DMAPause(&SpiHandle);
+}
+
+void SPI_Receive(uint8_t* address, int size)
+{
+	HAL_SPI_Receive_DMA(&SpiHandle, address, size);
+}
 
 void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan){
 	GPIO_InitTypeDef GPIO_InitStruct;
@@ -125,6 +142,9 @@ GPIO_InitTypeDef  GPIO_InitStruct;
     GPIO_InitStruct.Alternate = SPIx_SCK_AF;
     HAL_GPIO_Init(SPIx_SCK_GPIO_PORT, &GPIO_InitStruct);
 
+    GPIO_InitStruct.Pin = SPIx_NSS_PIN;
+    GPIO_InitStruct.Alternate = SPIx_NSS_AF;
+    HAL_GPIO_Init(SPIx_NSS_GPIO_PORT, &GPIO_InitStruct);
     /* SPI MISO GPIO pin configuration  */
     GPIO_InitStruct.Pin = SPIx_MISO_PIN;
     GPIO_InitStruct.Alternate = SPIx_MISO_AF;
@@ -219,6 +239,19 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi)
     HAL_NVIC_SetPriority(SPIx_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(SPIx_IRQn);
   }
+}
+
+void CAN_Send(uint32_t ID, uint32_t length, uint8_t* message)
+{
+	for(int i = 0; i < 8; ++i)
+		msg.Data[i] = message[i];
+	msg.DLC = length;
+	msg.StdId = ID;
+	msg.IDE = CAN_ID_STD;
+
+	hcan1.pTxMsg = &msg;
+
+	HAL_CAN_Transmit(&hcan1, 100);
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
