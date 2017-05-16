@@ -67,39 +67,32 @@ static void sendCanLogThread(void)
 
 			memset(buffer,0,MAX_LINE);
 			f_gets(buffer, MAX_LINE, &logFile);
-			if(buffer[0] < '0' || buffer[0] > '9') {
-				continue;
-			}
 
 			CAN_message.IDE = CAN_ID_STD;
 
-			char bufferData[24];
-			memset(bufferData, 0, 24);
+			int res = sscanf(buffer, "%d.%*d %*d %x %*c%*c %*c %d %x %x %x %x %x %x %x %x%*[^\n]",
+			              &currentTime,
+			              (int*)&CAN_message.StdId,
+			              (int*)&CAN_message.DLC,
+			              (int*)&CAN_message.Data[0],
+			              (int*)&CAN_message.Data[1],
+			              (int*)&CAN_message.Data[2],
+			              (int*)&CAN_message.Data[3],
+			              (int*)&CAN_message.Data[4],
+			              (int*)&CAN_message.Data[5],
+			              (int*)&CAN_message.Data[6],
+			              (int*)&CAN_message.Data[7]
+			          );
 
-int res = sscanf(buffer, "%d.%*d %*d %x %*c%*c %*c %d %x %x %x %x %x %x %x %x\n",
-				&currentTime,
-				(int*)&CAN_message.StdId,
-				(int*)&CAN_message.DLC,
-				(int*)&CAN_message.Data[0],
-				(int*)&CAN_message.Data[1],
-				(int*)&CAN_message.Data[2],
-				(int*)&CAN_message.Data[3],
-				(int*)&CAN_message.Data[4],
-				(int*)&CAN_message.Data[5],
-				(int*)&CAN_message.Data[6],
-				(int*)&CAN_message.Data[7]
-			);
+			if (res < 4 || res > 11)
+				continue;
 
 			if (startTime != 0)
 				HAL_Delay(1);
 
 			startTime = currentTime;
 
-			if (res < 2) {
-				continue;
-			}
-
-			HAL_CAN_Transmit(&hcan1, 1);
+			HAL_CAN_Transmit(&hcan1, 1000);
 			xQueueReceive(queue, &quit, 0);
 		}
 	}

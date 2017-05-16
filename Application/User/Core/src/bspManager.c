@@ -66,7 +66,7 @@ static void CAN_Init(){
 
 static void SPI_Init(){
 	SpiHandle.Instance               = SPI2;
-//	SpiHandle.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+	SpiHandle.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
 	SpiHandle.Init.Direction         = SPI_DIRECTION_2LINES;
 	SpiHandle.Init.CLKPhase          = SPI_PHASE_1EDGE;
 	SpiHandle.Init.CLKPolarity       = SPI_POLARITY_LOW;
@@ -89,12 +89,18 @@ void SPI_Resume(void)
 
 void SPI_Pause(void)
 {
-	HAL_SPI_DMAPause(&SpiHandle);
+//	HAL_SPI_DMAPause(&SpiHandle);
+	HAL_SPI_DMAStop(&SpiHandle);
 }
 
 void SPI_Receive(uint8_t* address, int size)
 {
 	HAL_SPI_Receive_DMA(&SpiHandle, address, size);
+//	HAL_SPI_Receive(&SpiHandle, address, size, HAL_MAX_DELAY);
+}
+void checkErrors(int numBytes)
+{
+//	return (hdma_rx.Instance->NDTR == 0);
 }
 
 void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan){
@@ -126,8 +132,10 @@ GPIO_InitTypeDef  GPIO_InitStruct;
     /*##-1- Enable peripherals and GPIO Clocks #################################*/
     /* Enable GPIO TX/RX clock */
     SPIx_SCK_GPIO_CLK_ENABLE();
+    SPIx_NSS_GPIO_CLK_ENABLE();
     SPIx_MISO_GPIO_CLK_ENABLE();
     SPIx_MOSI_GPIO_CLK_ENABLE();
+
     /* Enable SPI2 clock */
     SPIx_CLK_ENABLE();
     /* Enable DMA clock */
@@ -159,7 +167,7 @@ GPIO_InitTypeDef  GPIO_InitStruct;
     /* Configure the DMA handler for Transmission process */
     hdma_tx.Instance                 = SPIx_TX_DMA_STREAM;
     hdma_tx.Init.Channel             = SPIx_TX_DMA_CHANNEL;
-    hdma_tx.Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
+    hdma_tx.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
     hdma_tx.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
     hdma_tx.Init.MemBurst            = DMA_MBURST_INC4;
     hdma_tx.Init.PeriphBurst         = DMA_PBURST_INC4;
@@ -219,6 +227,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi)
     /*##-2- Disable peripherals and GPIO Clocks ################################*/
     /* Deconfigure SPI SCK */
     HAL_GPIO_DeInit(SPIx_SCK_GPIO_PORT, SPIx_SCK_PIN);
+    HAL_GPIO_DeInit(SPIx_NSS_GPIO_PORT, SPIx_NSS_PIN);
     /* Deconfigure SPI MISO */
     HAL_GPIO_DeInit(SPIx_MISO_GPIO_PORT, SPIx_MISO_PIN);
     /* Deconfigure SPI MOSI */
@@ -243,7 +252,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi)
 
 void CAN_Send(uint32_t ID, uint32_t length, uint8_t* message)
 {
-	for(int i = 0; i < 8; ++i)
+	for(int i = 0; i < length; ++i)
 		msg.Data[i] = message[i];
 	msg.DLC = length;
 	msg.StdId = ID;
@@ -254,7 +263,20 @@ void CAN_Send(uint32_t ID, uint32_t length, uint8_t* message)
 	HAL_CAN_Transmit(&hcan1, 100);
 }
 
+//void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
+//{
+//  /* Configure LED1 which is shared with SPI2_SCK signal */
+//  BSP_LED_Init(LED1);
+//  /* Turn LED1 on: Transfer in transmission/reception process is complete */
+//  BSP_LED_On(LED1);
+//  wTransferState = TRANSFER_COMPLETE;
+//}
+
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
+	  /* Configure LED1 which is shared with SPI2_SCK signal */
+//	  BSP_LED_Init(LED2);
+//	  /* Turn LED1 on: Transfer in transmission/reception process is complete */
+//	  BSP_LED_On(LED2);
 	wTransferState = TRANSFER_COMPLETE;
 }
 

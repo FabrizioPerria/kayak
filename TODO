@@ -3,9 +3,8 @@ udp discovery routine when ethernet PHY connection is detected
 UDP server to get commands through ethernet and send CAN messages
 WPF windows application to comunicate to kayak
 
-SPI screen
+check minor data loss when cluster wakes up (out of sync with clock??)
+SPI on run log screen
+back to 2 buttons on the first screen
 
-regex for can log parsing
-
-debug crash at the first execution
 coding style

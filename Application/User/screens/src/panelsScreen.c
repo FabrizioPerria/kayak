@@ -1,16 +1,17 @@
 #include "panelsScreen.h"
+#include "SPIScreen.h"
 #include "messages.h"
 #include "bspManager.h"
 #include "cmsis_os.h"
 #include <string.h>
 #include "main.h"
 
-#define ID_WINDOW_0  (GUI_ID_USER + 0x00)
+#define ID_WINDOW_MAIN_0  (GUI_ID_USER + 0x00)
 #define ID_MULTIPAGE_0  (GUI_ID_USER + 0x01)
 #define ID_WINDOW_MAIN  (GUI_ID_USER + 0x0C)
 #define ID_SLIDER_0  (GUI_ID_USER + 0x02)
 #define ID_SLIDER_1  (GUI_ID_USER + 0x03)
-#define ID_TEXT_0  (GUI_ID_USER + 0x04)
+#define ID_TEXT_MAIN_0  (GUI_ID_USER + 0x04)
 #define ID_TEXT_1  (GUI_ID_USER + 0x05)
 #define ID_RADIO_0  (GUI_ID_USER + 0x06)
 #define ID_BUTTON_0  (GUI_ID_USER + 0x07)
@@ -37,6 +38,8 @@ static WM_HWIN hWin;
 static int periodicID[NUM_CAN_MESSAGES];
 static uint8_t* periodicData[NUM_CAN_MESSAGES];
 static int periodicLength[NUM_CAN_MESSAGES];
+WM_HWIN SPI_Dialog;
+WM_HWIN Main_Dialog;
 // USER END
 
 /*********************************************************************
@@ -64,6 +67,12 @@ static const GUI_WIDGET_CREATE_INFO _aDialogMainCreate[] = {
 
 };
 
+static const GUI_WIDGET_CREATE_INFO _aDialogSPICreate[] = {
+	{ WINDOW_CreateIndirect, "Window", ID_WINDOW_0, 0, 0, 800, 480, 0, 0x0, 0 },
+	{ MULTIEDIT_CreateIndirect, "Multiedit", ID_MULTIEDIT_0, 0, 0, 800, 375, 0, 0x0, 0 },
+	//{ BUTTON_CreateIndirect, "Button", ID_BACK_BUTTON, 0, 0, 80, 80, 0, 0x0, 0 },
+//	{ TEXT_CreateIndirect, "SPI data", ID_TEXT_0, 356, 37, 80, 20, 0, 0x0, 0 },
+};
 /*********************************************************************
 *
 *       Static code
@@ -77,8 +86,14 @@ static void mainCallback(WM_MESSAGE *pMsg)
 	int     NCode;
 	int     Id;
 	uint8_t buffer[8];
+	static int x = 0;
 
 	switch (pMsg->MsgId) {
+	case 948:
+		hItem = WM_GetDialogItem(pMsg->hWin, ID_RADIO_0);
+		RADIO_SetValue(hItem, x++);
+		x %= 4;
+		break;
 	case WM_INIT_DIALOG:
 		hItem = WM_GetDialogItem(pMsg->hWin, ID_RADIO_0);
 		RADIO_SetText(hItem, "Lock", 0);
@@ -111,8 +126,8 @@ static void mainCallback(WM_MESSAGE *pMsg)
 			case WM_NOTIFICATION_VALUE_CHANGED:
 				hItem = WM_GetDialogItem(pMsg->hWin, ID_SLIDER_1);
 				int rpm = SLIDER_GetValue(hItem);
-				periodicData[CAN_CBC_PT8][0] = (uint8_t) ((rpm >> 8) & 0xFF);
-				periodicData[CAN_CBC_PT8][1] = (uint8_t) (rpm & 0xFF);
+				periodicData[CAN_ECM_A1][0] = (uint8_t) ((rpm >> 8) & 0xFF);
+				periodicData[CAN_ECM_A1][1] = (uint8_t) (rpm & 0xFF);
 				break;
 			}
 			break;
@@ -222,9 +237,10 @@ static void _cbDialog(WM_MESSAGE * pMsg) {
 	switch (pMsg->MsgId) {
 	case WM_INIT_DIALOG:
 		hItem = WM_GetDialogItem(pMsg->hWin, ID_MULTIPAGE_0);
-		WM_HWIN hDialog = GUI_CreateDialogBox(_aDialogMainCreate, GUI_COUNTOF(_aDialogMainCreate), mainCallback, WM_UNATTACHED, 0, 0);
-		MULTIPAGE_AddPage(hItem, hDialog, "Main");
-
+		SPI_Dialog = GUI_CreateDialogBox(_aDialogSPICreate, GUI_COUNTOF(_aDialogSPICreate), _cbSPIDialog, WM_HBKWIN, 0, 0);
+		MULTIPAGE_AddPage(hItem, SPI_Dialog, "SPI");
+		Main_Dialog = GUI_CreateDialogBox(_aDialogMainCreate, GUI_COUNTOF(_aDialogMainCreate), mainCallback, WM_HBKWIN, 0, 0);
+		MULTIPAGE_AddPage(hItem, Main_Dialog, "Main");
 		MULTIPAGE_AddEmptyPage(hItem, 0, "Second Panel");
 		//
 
@@ -255,13 +271,13 @@ static void _cbDialog(WM_MESSAGE * pMsg) {
 }
 
 
-
+WM_MESSAGE msg;
 
 void periodic_CAN_Timer(void)
 {
 	uint8_t buffer[8];
 	static uint32_t ui32_Millisecond_Count = 0;
-
+	static char exit = 0;
 	//CBCPT2
 //	memset(buffer, 0, 8);
 //	buffer[0] = (uint8_t) (periodicData[CBC_PT2] & 0xFF);
@@ -277,98 +293,109 @@ void periodic_CAN_Timer(void)
 //	buffer[1] = (uint8_t) (periodicData[RPM] & 0xFF);
 //	sendCANMessage(periodicID[RPM], periodicLength[RPM], buffer);
 
-	ui32_Millisecond_Count++;
-	if ((ui32_Millisecond_Count % 10) == 0) {
-		CAN_Send(periodicID[CAN_ECM_A1], periodicLength[CAN_ECM_A1], periodicData[CAN_ECM_A1]);
-		CAN_Send(periodicID[CAN_ECM_A3], periodicLength[CAN_ECM_A3], periodicData[CAN_ECM_A3]);
-		CAN_Send(periodicID[CAN_SCCM_STW_ANGL_STAT], periodicLength[CAN_SCCM_STW_ANGL_STAT], periodicData[CAN_SCCM_STW_ANGL_STAT]);
+//	WM_SendMessage(SPI_Dialog, &msg);
+	while (1) {
+		osDelay(1);
+		ui32_Millisecond_Count++;
+		if (ui32_Millisecond_Count % 40000 == 0)
+			exit ^= 1;
+		if(!exit) {
+			if ((ui32_Millisecond_Count % 10) == 0) {
+
+				CAN_Send(periodicID[CAN_ECM_A1], periodicLength[CAN_ECM_A1], periodicData[CAN_ECM_A1]);
+				CAN_Send(periodicID[CAN_ECM_A3], periodicLength[CAN_ECM_A3], periodicData[CAN_ECM_A3]);
+				CAN_Send(periodicID[CAN_SCCM_STW_ANGL_STAT], periodicLength[CAN_SCCM_STW_ANGL_STAT], periodicData[CAN_SCCM_STW_ANGL_STAT]);
+			}
+
+			if ((ui32_Millisecond_Count % (20 - 2)) == 0) {
+	//			WM_SendMessage(SPI_Dialog, &msg);
+				CAN_Send(periodicID[CAN_CBC_PT2], periodicLength[CAN_CBC_PT2], periodicData[CAN_CBC_PT2]);
+				CAN_Send(periodicID[CAN_DTCM_A1], periodicLength[CAN_DTCM_A1], periodicData[CAN_DTCM_A1]);
+				CAN_Send(periodicID[CAN_ECM_CRUISE_MAP], periodicLength[CAN_ECM_CRUISE_MAP], periodicData[CAN_ECM_CRUISE_MAP]);
+				CAN_Send(periodicID[CAN_ESP_A1], periodicLength[CAN_ESP_A1], periodicData[CAN_ESP_A1]);
+				CAN_Send(periodicID[CAN_ESP_A8], periodicLength[CAN_ESP_A8], periodicData[CAN_ESP_A8]);
+				CAN_Send(periodicID[CAN_SBW_ROT1], periodicLength[CAN_SBW_ROT1], periodicData[CAN_SBW_ROT1]);
+				CAN_Send(periodicID[CAN_TCM_A7], periodicLength[CAN_TCM_A7], periodicData[CAN_TCM_A7]);
+				CAN_Send(periodicID[CAN_TRNS_SPD], periodicLength[CAN_TRNS_SPD], periodicData[CAN_TRNS_SPD]);
+				CAN_Send(periodicID[CAN_TRNS_STAT], periodicLength[CAN_TRNS_STAT], periodicData[CAN_TRNS_STAT]);
+			}    // end if for 20 msec send periodic
+
+			if ((ui32_Millisecond_Count % (50 - 6)) == 0) {
+				CAN_Send(periodicID[CAN_ESP_B1], periodicLength[CAN_ESP_B1], periodicData[CAN_ESP_B1]);
+				CAN_Send(periodicID[CAN_CFG_RQ], periodicLength[CAN_CFG_RQ], periodicData[CAN_CFG_RQ]);
+			}    // end if for 50 msec send periodic
+
+			if ((ui32_Millisecond_Count % (100 - 12)) == 0) {
+				CAN_Send(periodicID[CAN_CBC_PT3], periodicLength[CAN_CBC_PT3], periodicData[CAN_CBC_PT3]);
+				CAN_Send(periodicID[CAN_CBC_PT9], periodicLength[CAN_CBC_PT9], periodicData[CAN_CBC_PT9]);
+				CAN_Send(periodicID[CAN_ECM_B11], periodicLength[CAN_ECM_B11], periodicData[CAN_ECM_B11]);
+				CAN_Send(periodicID[CAN_ECM_B2], periodicLength[CAN_ECM_B2], periodicData[CAN_ECM_B2]);
+				CAN_Send(periodicID[CAN_ECM_B3], periodicLength[CAN_ECM_B3], periodicData[CAN_ECM_B3]);
+				CAN_Send(periodicID[CAN_ECM_B9], periodicLength[CAN_ECM_B9], periodicData[CAN_ECM_B9]);
+				CAN_Send(periodicID[CAN_ECM_DIESEL], periodicLength[CAN_ECM_DIESEL], periodicData[CAN_ECM_DIESEL]);
+				CAN_Send(periodicID[CAN_ECM_INDICATORS], periodicLength[CAN_ECM_INDICATORS], periodicData[CAN_ECM_INDICATORS]);
+				CAN_Send(periodicID[CAN_ENG_CFG], periodicLength[CAN_ENG_CFG], periodicData[CAN_ENG_CFG]);
+				CAN_Send(periodicID[CAN_EPS_A1], periodicLength[CAN_EPS_A1], periodicData[CAN_EPS_A1]);
+				CAN_Send(periodicID[CAN_HCP_C1], periodicLength[CAN_HCP_C1], periodicData[CAN_HCP_C1]);
+				CAN_Send(periodicID[CAN_TRNS_STAT2], periodicLength[CAN_TRNS_STAT2], periodicData[CAN_TRNS_STAT2]);
+				CAN_Send(periodicID[CAN_VIN], periodicLength[CAN_VIN], periodicData[CAN_VIN]);
+			}    // end if for 100 msec send periodic
+
+			if ((ui32_Millisecond_Count % (200 - 26)) == 0) {
+				CAN_Send(periodicID[CAN_RFHUB_A2], periodicLength[CAN_RFHUB_A2], periodicData[CAN_RFHUB_A2]);
+			}    // end if for 200 msec send periodic
+
+			if ((ui32_Millisecond_Count % (500 - 60)) == 0) {
+				CAN_Send(periodicID[CAN_BSM_A1], periodicLength[CAN_BSM_A1], periodicData[CAN_BSM_A1]);
+				CAN_Send(periodicID[CAN_HCP_DISP], periodicLength[CAN_HCP_DISP], periodicData[CAN_HCP_DISP]);
+				CAN_Send(periodicID[CAN_PN14_STAT], periodicLength[CAN_PN14_STAT], periodicData[CAN_PN14_STAT]);
+				CAN_Send(periodicID[CAN_PTS_1], periodicLength[CAN_PTS_1], periodicData[CAN_PTS_1]);
+				CAN_Send(periodicID[CAN_PTS_2], periodicLength[CAN_PTS_2], periodicData[CAN_PTS_2]);
+				CAN_Send(periodicID[CAN_STATUS_C_PTS], periodicLength[CAN_STATUS_C_PTS], periodicData[CAN_STATUS_C_PTS]);
+				CAN_Send(periodicID[CAN_VehCfg1], periodicLength[CAN_VehCfg1], periodicData[CAN_VehCfg1]);
+			}    // end if for 500 msec send periodic
+
+			if ((ui32_Millisecond_Count % (1000 - 120)) == 0) {
+				CAN_Send(periodicID[CAN_AMB_TEMP_DISP], periodicLength[CAN_AMB_TEMP_DISP], periodicData[CAN_AMB_TEMP_DISP]);
+				CAN_Send(periodicID[CAN_ASBS_1], periodicLength[CAN_ASBS_1], periodicData[CAN_ASBS_1]);
+				CAN_Send(periodicID[CAN_CBC_PT1], periodicLength[CAN_CBC_PT1], periodicData[CAN_CBC_PT1]);
+				CAN_Send(periodicID[CAN_CBC_PT10], periodicLength[CAN_CBC_PT10], periodicData[CAN_CBC_PT10]);
+				CAN_Send(periodicID[CAN_CBC_PT4], periodicLength[CAN_CBC_PT4], periodicData[CAN_CBC_PT4]);
+				CAN_Send(periodicID[CAN_CBC_PT8], periodicLength[CAN_CBC_PT8], periodicData[CAN_CBC_PT8]);
+				CAN_Send(periodicID[CAN_Clock_Date], periodicLength[CAN_Clock_Date], periodicData[CAN_Clock_Date]);
+				CAN_Send(periodicID[CAN_COMPASS_A1], periodicLength[CAN_COMPASS_A1], periodicData[CAN_COMPASS_A1]);
+				CAN_Send(periodicID[CAN_DIRECT_INFO], periodicLength[CAN_DIRECT_INFO], periodicData[CAN_DIRECT_INFO]);
+				CAN_Send(periodicID[CAN_DTCM_B1], periodicLength[CAN_DTCM_B1], periodicData[CAN_DTCM_B1]);
+				CAN_Send(periodicID[CAN_ECM_B5], periodicLength[CAN_ECM_B5], periodicData[CAN_ECM_B5]);
+				CAN_Send(periodicID[CAN_GW_I_C1], periodicLength[CAN_GW_I_C1], periodicData[CAN_GW_I_C1]);
+				CAN_Send(periodicID[CAN_GW_LIN_I_C2], periodicLength[CAN_GW_LIN_I_C2], periodicData[CAN_GW_LIN_I_C2]);
+				CAN_Send(periodicID[CAN_GW_LIN_I_C4], periodicLength[CAN_GW_LIN_I_C4], periodicData[CAN_GW_LIN_I_C4]);
+				CAN_Send(periodicID[CAN_ORC_A1], periodicLength[CAN_ORC_A1], periodicData[CAN_ORC_A1]);
+				CAN_Send(periodicID[CAN_ORC_A3], periodicLength[CAN_ORC_A3], periodicData[CAN_ORC_A3]);
+				CAN_Send(periodicID[CAN_RFHUB_A3], periodicLength[CAN_RFHUB_A3], periodicData[CAN_RFHUB_A3]);
+		//		CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
+				CAN_Send(periodicID[CAN_TGW_DATA_IC], periodicLength[CAN_TGW_DATA_IC], periodicData[CAN_TGW_DATA_IC]);
+				CAN_Send(periodicID[CAN_TPM_A1], periodicLength[CAN_TPM_A1], periodicData[CAN_TPM_A1]);
+			}    // end if for 1000 msec send periodic
+
+			if ((ui32_Millisecond_Count % (2000 - 240)) == 0) {
+				CAN_Send(periodicID[CAN_EcuCfg10], periodicLength[CAN_EcuCfg10], periodicData[CAN_EcuCfg10]);
+				CAN_Send(periodicID[CAN_EcuCfg12], periodicLength[CAN_EcuCfg12], periodicData[CAN_EcuCfg12]);
+				CAN_Send(periodicID[CAN_EcuCfg4], periodicLength[CAN_EcuCfg4], periodicData[CAN_EcuCfg4]);
+				CAN_Send(periodicID[CAN_NET_CFG_INT], periodicLength[CAN_NET_CFG_INT], periodicData[CAN_NET_CFG_INT]);
+				CAN_Send(periodicID[CAN_NET_CFG_PT], periodicLength[CAN_NET_CFG_PT], periodicData[CAN_NET_CFG_PT]);
+				CAN_Send(periodicID[CAN_VehCfg2], periodicLength[CAN_VehCfg2], periodicData[CAN_VehCfg2]);
+				CAN_Send(periodicID[CAN_VehCfg3], periodicLength[CAN_VehCfg3], periodicData[CAN_VehCfg3]);
+				CAN_Send(periodicID[CAN_VehCfg5], periodicLength[CAN_VehCfg5], periodicData[CAN_VehCfg5]);
+				CAN_Send(periodicID[CAN_VehCfg6], periodicLength[CAN_VehCfg6], periodicData[CAN_VehCfg6]);
+				CAN_Send(periodicID[CAN_VehCfg7], periodicLength[CAN_VehCfg7], periodicData[CAN_VehCfg7]);
+				CAN_Send(periodicID[CAN_VehCfg8], periodicLength[CAN_VehCfg8], periodicData[CAN_VehCfg8]);
+				CAN_Send(periodicID[CAN_VehCfgCSM1], periodicLength[CAN_VehCfgCSM1], periodicData[CAN_VehCfgCSM1]);
+				CAN_Send(periodicID[CAN_VehCfgCSM2], periodicLength[CAN_VehCfgCSM2], periodicData[CAN_VehCfgCSM2]);
+
+			}    // end if for 2000 msec send periodic
+		}
 	}
-
-	if ((ui32_Millisecond_Count % (20 - 2)) == 0) {
-		CAN_Send(periodicID[CAN_CBC_PT2], periodicLength[CAN_CBC_PT2], periodicData[CAN_CBC_PT2]);
-		CAN_Send(periodicID[CAN_DTCM_A1], periodicLength[CAN_DTCM_A1], periodicData[CAN_DTCM_A1]);
-		CAN_Send(periodicID[CAN_ECM_CRUISE_MAP], periodicLength[CAN_ECM_CRUISE_MAP], periodicData[CAN_ECM_CRUISE_MAP]);
-		CAN_Send(periodicID[CAN_ESP_A1], periodicLength[CAN_ESP_A1], periodicData[CAN_ESP_A1]);
-		CAN_Send(periodicID[CAN_ESP_A8], periodicLength[CAN_ESP_A8], periodicData[CAN_ESP_A8]);
-		CAN_Send(periodicID[CAN_SBW_ROT1], periodicLength[CAN_SBW_ROT1], periodicData[CAN_SBW_ROT1]);
-		CAN_Send(periodicID[CAN_TCM_A7], periodicLength[CAN_TCM_A7], periodicData[CAN_TCM_A7]);
-		CAN_Send(periodicID[CAN_TRNS_SPD], periodicLength[CAN_TRNS_SPD], periodicData[CAN_TRNS_SPD]);
-		CAN_Send(periodicID[CAN_TRNS_STAT], periodicLength[CAN_TRNS_STAT], periodicData[CAN_TRNS_STAT]);
-	}    // end if for 20 msec send periodic
-
-	if ((ui32_Millisecond_Count % (50 - 6)) == 0) {
-		CAN_Send(periodicID[CAN_ESP_B1], periodicLength[CAN_ESP_B1], periodicData[CAN_ESP_B1]);
-		CAN_Send(periodicID[CAN_CFG_RQ], periodicLength[CAN_CFG_RQ], periodicData[CAN_CFG_RQ]);
-	}    // end if for 50 msec send periodic
-
-	if ((ui32_Millisecond_Count % (100 - 12)) == 0) {
-		CAN_Send(periodicID[CAN_CBC_PT3], periodicLength[CAN_CBC_PT3], periodicData[CAN_CBC_PT3]);
-		CAN_Send(periodicID[CAN_CBC_PT9], periodicLength[CAN_CBC_PT9], periodicData[CAN_CBC_PT9]);
-		CAN_Send(periodicID[CAN_ECM_B11], periodicLength[CAN_ECM_B11], periodicData[CAN_ECM_B11]);
-		CAN_Send(periodicID[CAN_ECM_B2], periodicLength[CAN_ECM_B2], periodicData[CAN_ECM_B2]);
-		CAN_Send(periodicID[CAN_ECM_B3], periodicLength[CAN_ECM_B3], periodicData[CAN_ECM_B3]);
-		CAN_Send(periodicID[CAN_ECM_B9], periodicLength[CAN_ECM_B9], periodicData[CAN_ECM_B9]);
-		CAN_Send(periodicID[CAN_ECM_DIESEL], periodicLength[CAN_ECM_DIESEL], periodicData[CAN_ECM_DIESEL]);
-		CAN_Send(periodicID[CAN_ECM_INDICATORS], periodicLength[CAN_ECM_INDICATORS], periodicData[CAN_ECM_INDICATORS]);
-		CAN_Send(periodicID[CAN_ENG_CFG], periodicLength[CAN_ENG_CFG], periodicData[CAN_ENG_CFG]);
-		CAN_Send(periodicID[CAN_EPS_A1], periodicLength[CAN_EPS_A1], periodicData[CAN_EPS_A1]);
-		CAN_Send(periodicID[CAN_HCP_C1], periodicLength[CAN_HCP_C1], periodicData[CAN_HCP_C1]);
-		CAN_Send(periodicID[CAN_TRNS_STAT2], periodicLength[CAN_TRNS_STAT2], periodicData[CAN_TRNS_STAT2]);
-		CAN_Send(periodicID[CAN_VIN], periodicLength[CAN_VIN], periodicData[CAN_VIN]);
-	}    // end if for 100 msec send periodic
-
-	if ((ui32_Millisecond_Count % (200 - 26)) == 0) {
-		CAN_Send(periodicID[CAN_RFHUB_A2], periodicLength[CAN_RFHUB_A2], periodicData[CAN_RFHUB_A2]);
-	}    // end if for 200 msec send periodic
-
-	if ((ui32_Millisecond_Count % (500 - 60)) == 0) {
-		CAN_Send(periodicID[CAN_BSM_A1], periodicLength[CAN_BSM_A1], periodicData[CAN_BSM_A1]);
-		CAN_Send(periodicID[CAN_HCP_DISP], periodicLength[CAN_HCP_DISP], periodicData[CAN_HCP_DISP]);
-		CAN_Send(periodicID[CAN_PN14_STAT], periodicLength[CAN_PN14_STAT], periodicData[CAN_PN14_STAT]);
-		CAN_Send(periodicID[CAN_PTS_1], periodicLength[CAN_PTS_1], periodicData[CAN_PTS_1]);
-		CAN_Send(periodicID[CAN_PTS_2], periodicLength[CAN_PTS_2], periodicData[CAN_PTS_2]);
-		CAN_Send(periodicID[CAN_STATUS_C_PTS], periodicLength[CAN_STATUS_C_PTS], periodicData[CAN_STATUS_C_PTS]);
-		CAN_Send(periodicID[CAN_VehCfg1], periodicLength[CAN_VehCfg1], periodicData[CAN_VehCfg1]);
-	}    // end if for 500 msec send periodic
-
-	if ((ui32_Millisecond_Count % (1000 - 120)) == 0) {
-		CAN_Send(periodicID[CAN_AMB_TEMP_DISP], periodicLength[CAN_AMB_TEMP_DISP], periodicData[CAN_AMB_TEMP_DISP]);
-		CAN_Send(periodicID[CAN_ASBS_1], periodicLength[CAN_ASBS_1], periodicData[CAN_ASBS_1]);
-		CAN_Send(periodicID[CAN_CBC_PT1], periodicLength[CAN_CBC_PT1], periodicData[CAN_CBC_PT1]);
-		CAN_Send(periodicID[CAN_CBC_PT10], periodicLength[CAN_CBC_PT10], periodicData[CAN_CBC_PT10]);
-		CAN_Send(periodicID[CAN_CBC_PT4], periodicLength[CAN_CBC_PT4], periodicData[CAN_CBC_PT4]);
-		CAN_Send(periodicID[CAN_CBC_PT8], periodicLength[CAN_CBC_PT8], periodicData[CAN_CBC_PT8]);
-		CAN_Send(periodicID[CAN_Clock_Date], periodicLength[CAN_Clock_Date], periodicData[CAN_Clock_Date]);
-		CAN_Send(periodicID[CAN_COMPASS_A1], periodicLength[CAN_COMPASS_A1], periodicData[CAN_COMPASS_A1]);
-		CAN_Send(periodicID[CAN_DIRECT_INFO], periodicLength[CAN_DIRECT_INFO], periodicData[CAN_DIRECT_INFO]);
-		CAN_Send(periodicID[CAN_DTCM_B1], periodicLength[CAN_DTCM_B1], periodicData[CAN_DTCM_B1]);
-		CAN_Send(periodicID[CAN_ECM_B5], periodicLength[CAN_ECM_B5], periodicData[CAN_ECM_B5]);
-		CAN_Send(periodicID[CAN_GW_I_C1], periodicLength[CAN_GW_I_C1], periodicData[CAN_GW_I_C1]);
-		CAN_Send(periodicID[CAN_GW_LIN_I_C2], periodicLength[CAN_GW_LIN_I_C2], periodicData[CAN_GW_LIN_I_C2]);
-		CAN_Send(periodicID[CAN_GW_LIN_I_C4], periodicLength[CAN_GW_LIN_I_C4], periodicData[CAN_GW_LIN_I_C4]);
-		CAN_Send(periodicID[CAN_ORC_A1], periodicLength[CAN_ORC_A1], periodicData[CAN_ORC_A1]);
-		CAN_Send(periodicID[CAN_ORC_A3], periodicLength[CAN_ORC_A3], periodicData[CAN_ORC_A3]);
-		CAN_Send(periodicID[CAN_RFHUB_A3], periodicLength[CAN_RFHUB_A3], periodicData[CAN_RFHUB_A3]);
-//		CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
-		CAN_Send(periodicID[CAN_TGW_DATA_IC], periodicLength[CAN_TGW_DATA_IC], periodicData[CAN_TGW_DATA_IC]);
-		CAN_Send(periodicID[CAN_TPM_A1], periodicLength[CAN_TPM_A1], periodicData[CAN_TPM_A1]);
-	}    // end if for 1000 msec send periodic
-
-	if ((ui32_Millisecond_Count % (2000 - 240)) == 0) {
-		CAN_Send(periodicID[CAN_EcuCfg10], periodicLength[CAN_EcuCfg10], periodicData[CAN_EcuCfg10]);
-		CAN_Send(periodicID[CAN_EcuCfg12], periodicLength[CAN_EcuCfg12], periodicData[CAN_EcuCfg12]);
-		CAN_Send(periodicID[CAN_EcuCfg4], periodicLength[CAN_EcuCfg4], periodicData[CAN_EcuCfg4]);
-		CAN_Send(periodicID[CAN_NET_CFG_INT], periodicLength[CAN_NET_CFG_INT], periodicData[CAN_NET_CFG_INT]);
-		CAN_Send(periodicID[CAN_NET_CFG_PT], periodicLength[CAN_NET_CFG_PT], periodicData[CAN_NET_CFG_PT]);
-		CAN_Send(periodicID[CAN_VehCfg2], periodicLength[CAN_VehCfg2], periodicData[CAN_VehCfg2]);
-		CAN_Send(periodicID[CAN_VehCfg3], periodicLength[CAN_VehCfg3], periodicData[CAN_VehCfg3]);
-		CAN_Send(periodicID[CAN_VehCfg5], periodicLength[CAN_VehCfg5], periodicData[CAN_VehCfg5]);
-		CAN_Send(periodicID[CAN_VehCfg6], periodicLength[CAN_VehCfg6], periodicData[CAN_VehCfg6]);
-		CAN_Send(periodicID[CAN_VehCfg7], periodicLength[CAN_VehCfg7], periodicData[CAN_VehCfg7]);
-		CAN_Send(periodicID[CAN_VehCfg8], periodicLength[CAN_VehCfg8], periodicData[CAN_VehCfg8]);
-		CAN_Send(periodicID[CAN_VehCfgCSM1], periodicLength[CAN_VehCfgCSM1], periodicData[CAN_VehCfgCSM1]);
-		CAN_Send(periodicID[CAN_VehCfgCSM2], periodicLength[CAN_VehCfgCSM2], periodicData[CAN_VehCfgCSM2]);
-	}    // end if for 2000 msec send periodic
 }
 
 void initArrays(void)
@@ -385,6 +412,8 @@ void initArrays(void)
 
 //	periodicID[CBC_PT2] = 0x77;
 //	periodicLength[CBC_PT2] = 2;
+
+	msg.MsgId = WM_USER;
 
 	periodicLength[CAN_AMB_TEMP_DISP] = 4;
 	periodicID[CAN_AMB_TEMP_DISP] = 0x3C9;
@@ -718,12 +747,11 @@ void initArrays(void)
 osTimerId timer;
 WM_HWIN openPanels(void)
 {
-	initArrays();
-	/* Create Touch screen Timer */
-	osTimerDef(periodic_CAN_Timer, periodic_CAN_Timer);
-	timer = osTimerCreate(osTimer(periodic_CAN_Timer), osTimerPeriodic, NULL);
-	/* Start the TS Timer */
-	osTimerStart(timer, 1);
 	hWin = GUI_CreateDialogBox(_aDialogCreate, GUI_COUNTOF(_aDialogCreate), _cbDialog, WM_HBKWIN, 0, 0);
+	initArrays();
+//	/* Start the TS Timer */
+	osThreadDef(periodic_CAN_Timer, periodic_CAN_Timer, osPriorityNormal, 0, 2 * 1024);
+	osThreadCreate (osThread(periodic_CAN_Timer), NULL);
+
 	return hWin;
 }

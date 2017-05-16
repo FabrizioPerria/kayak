@@ -91,4 +91,7 @@ enum {
 	NUM_CAN_MESSAGES
 };
 
+WM_HWIN openPanels(void);
+void periodic_CAN_Timer(void);
+
 #endif /* APPLICATION_USER_SCREENS_INC_PANELSSCREEN_H_ */

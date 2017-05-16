@@ -18,6 +18,7 @@ enum {
 #define SPIx_CLK_ENABLE()                __HAL_RCC_SPI2_CLK_ENABLE()
 #define DMAx_CLK_ENABLE()                __HAL_RCC_DMA1_CLK_ENABLE()
 #define SPIx_SCK_GPIO_CLK_ENABLE()       __HAL_RCC_GPIOA_CLK_ENABLE()
+#define SPIx_NSS_GPIO_CLK_ENABLE()       __HAL_RCC_GPIOA_CLK_ENABLE()
 #define SPIx_MISO_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOB_CLK_ENABLE()
 #define SPIx_MOSI_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOB_CLK_ENABLE()
 
@@ -60,6 +61,7 @@ void bspManagerInit(void);
 void SPI_Resume(void);
 void SPI_Pause(void);
 void SPI_Receive(uint8_t* address, int size);
+void checkErrors(int numBytes);
 
 void CAN_Send(uint32_t ID, uint32_t length, uint8_t* message);
 void touchUpdate(void);

@@ -40,7 +40,7 @@ int main(void)
 	bspManagerInit();
 
 	/* Create GUI task */
-	osThreadDef(MainThread, MainThread, osPriorityNormal, 0, 1024);
+	osThreadDef(MainThread, MainThread, osPriorityNormal, 0, 4 * 1024);
 	osThreadCreate (osThread(MainThread), NULL);
 	/* Initialize GUI */
 	GUI_Init();
@@ -190,20 +190,22 @@ void HAL_Delay (__IO uint32_t Delay)
 static void CPU_CACHE_Enable(void)
 {
 	/* Invalidate I-Cache : ICIALLU register*/
-	SCB_InvalidateICache();
+//	SCB_InvalidateICache();
 
 	/* Enable branch prediction */
-	SCB->CCR |= (1 <<18);
-	__DSB();
+//	SCB->CCR |= (1 <<18);
+//	__DSB();
 
 	/* Invalidate I-Cache : ICIALLU register*/
-	SCB_InvalidateICache();
+//	SCB_InvalidateICache();
 
 	/* Enable I-Cache */
-	SCB_EnableICache();
+//	SCB_EnableICache();
 
-	SCB_InvalidateDCache();
-	SCB_EnableDCache();
+//	SCB_InvalidateDCache();
+//	SCB_EnableDCache();
+	SCB_DisableICache();
+	SCB_DisableDCache();
 }
 
 void CleanDisplay (uint32_t address)
