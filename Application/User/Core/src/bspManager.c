@@ -66,7 +66,7 @@ static void CAN_Init(){
 
 static void SPI_Init(){
 	SpiHandle.Instance               = SPI2;
-	SpiHandle.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+//	SpiHandle.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
 	SpiHandle.Init.Direction         = SPI_DIRECTION_2LINES;
 	SpiHandle.Init.CLKPhase          = SPI_PHASE_1EDGE;
 	SpiHandle.Init.CLKPolarity       = SPI_POLARITY_LOW;
@@ -186,7 +186,6 @@ GPIO_InitTypeDef  GPIO_InitStruct;
 
     /* Configure the DMA handler for Transmission process */
     hdma_rx.Instance                 = SPIx_RX_DMA_STREAM;
-
     hdma_rx.Init.Channel             = SPIx_RX_DMA_CHANNEL;
     hdma_rx.Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
     hdma_rx.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
@@ -197,7 +196,7 @@ GPIO_InitTypeDef  GPIO_InitStruct;
     hdma_rx.Init.MemInc              = DMA_MINC_ENABLE;
     hdma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
     hdma_rx.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
-    hdma_rx.Init.Mode                = DMA_NORMAL;
+    hdma_rx.Init.Mode                = DMA_CIRCULAR;
     hdma_rx.Init.Priority            = DMA_PRIORITY_HIGH;
 
     HAL_DMA_Init(&hdma_rx);

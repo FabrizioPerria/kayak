@@ -3,6 +3,10 @@
 #include "DIALOG.h"
 #include "stm32f7xx_hal.h"
 #include "stm32f7xx_it.h"
+#include "cmsis_os.h"
+
+#define ID_WINDOW_PARENT  (GUI_ID_USER + 0x00)
+#define ID_MULTIPAGE_PARENT  (GUI_ID_USER + 0x01)
 
 // HAPPY CLUSTER SIGNAL LIST
 enum {
@@ -90,6 +94,19 @@ enum {
 	CAN_VIN,
 	NUM_CAN_MESSAGES
 };
+
+QueueHandle_t queueSPI;
+QueueHandle_t queueCAN;
+
+#define CONTINUE 0
+#define QUIT_40S_SLEEP 1
+#define QUIT_PERIODIC_CAN 2
+
+
+
+int periodicID[NUM_CAN_MESSAGES];
+uint8_t* periodicData[NUM_CAN_MESSAGES];
+int periodicLength[NUM_CAN_MESSAGES];
 
 WM_HWIN openPanels(void);
 void periodic_CAN_Timer(void);

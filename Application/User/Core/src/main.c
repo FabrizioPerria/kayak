@@ -116,6 +116,7 @@ static void setupTheme(void)
 	TEXT_SetDefaultTextColor(GUI_BLACK);
 
 	MULTIPAGE_SetDefaultFont(&GUI_Font32_ASCII);
+	MULTIPAGE_SetDefaultBorderSizeY(50);
 
 	RADIO_SetDefaultFont(&GUI_Font24_ASCII);
 }
@@ -205,7 +206,7 @@ static void CPU_CACHE_Enable(void)
 //	SCB_InvalidateDCache();
 //	SCB_EnableDCache();
 	SCB_DisableICache();
-	SCB_DisableDCache();
+//	SCB_DisableDCache();
 }
 
 void CleanDisplay (uint32_t address)

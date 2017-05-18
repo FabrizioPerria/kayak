@@ -1,268 +1,54 @@
 #include "panelsScreen.h"
 #include "SPIScreen.h"
+#include "main_panel.h"
 #include "messages.h"
 #include "bspManager.h"
 #include "cmsis_os.h"
 #include <string.h>
 #include "main.h"
 
-#define ID_WINDOW_MAIN_0  (GUI_ID_USER + 0x00)
-#define ID_MULTIPAGE_0  (GUI_ID_USER + 0x01)
-#define ID_WINDOW_MAIN  (GUI_ID_USER + 0x0C)
-#define ID_SLIDER_0  (GUI_ID_USER + 0x02)
-#define ID_SLIDER_1  (GUI_ID_USER + 0x03)
-#define ID_TEXT_MAIN_0  (GUI_ID_USER + 0x04)
-#define ID_TEXT_1  (GUI_ID_USER + 0x05)
-#define ID_RADIO_0  (GUI_ID_USER + 0x06)
-#define ID_BUTTON_0  (GUI_ID_USER + 0x07)
-#define ID_BUTTON_1  (GUI_ID_USER + 0x08)
-#define ID_BUTTON_2  (GUI_ID_USER + 0x09)
-#define ID_BUTTON_3  (GUI_ID_USER + 0x0A)
-#define ID_BUTTON_4  (GUI_ID_USER + 0x0B)
-#define ID_EXIT_BUTTON (GUI_ID_USER + 0x0C)
-
-// USER START (Optionally insert additional defines)
-// USER END
-
-/*********************************************************************
-*
-*       Static data
-*
-**********************************************************************
-*/
 static WM_HWIN hWin;
-// USER START (Optionally insert additional static data)
 
-//static int choiceCBCPT2;
-
-static int periodicID[NUM_CAN_MESSAGES];
-static uint8_t* periodicData[NUM_CAN_MESSAGES];
-static int periodicLength[NUM_CAN_MESSAGES];
 WM_HWIN SPI_Dialog;
 WM_HWIN Main_Dialog;
-// USER END
 
-/*********************************************************************
-*
-*       _aDialogCreate
-*/
+
 static const GUI_WIDGET_CREATE_INFO _aDialogCreate[] = {
-	{ WINDOW_CreateIndirect, "Window", ID_WINDOW_0, 0, 0, 800, 480, 0, 0x0, 0 },
-	{ MULTIPAGE_CreateIndirect, "Multipage", ID_MULTIPAGE_0, 0, 0, 799, 479, 0, 0x0, 0 },
+	{ WINDOW_CreateIndirect, "Window", ID_WINDOW_PARENT, 0, 0, 800, 480, 0, 0x0, 0 },
+	{ MULTIPAGE_CreateIndirect, "Multipage", ID_MULTIPAGE_PARENT, 0, 0, 799, 479, 0, 0x0, 0 },
 };
 
 static const GUI_WIDGET_CREATE_INFO _aDialogMainCreate[] = {
 	{ WINDOW_CreateIndirect, "Window", ID_WINDOW_MAIN, 0, 30, 800, 450, 0, 0x0, 0 },
-	{ SLIDER_CreateIndirect, "Slider", ID_SLIDER_0, 64, 70, 353, 50, 0, 0x0, 0 },
-	{ SLIDER_CreateIndirect, "Slider", ID_SLIDER_1, 64, 180, 353, 50, 0, 0x0, 0 },
-	{ TEXT_CreateIndirect, "Speed", ID_TEXT_0, 12, 77, 80, 20, 0, 0x0, 0 },
-	{ TEXT_CreateIndirect, "RPM", ID_TEXT_1, 18, 186, 80, 20, 0, 0x0, 0 },
-	{ RADIO_CreateIndirect, "Radio", ID_RADIO_0, 34, 270, 80, 153, 0, 0x2804, 0 },
-	{ BUTTON_CreateIndirect, "Up", ID_BUTTON_0, 550, 62, 80, 80, 0, 0x0, 0 },
-	{ BUTTON_CreateIndirect, "Right", ID_BUTTON_1, 652, 160, 80, 80, 0, 0x0, 0 },
-	{ BUTTON_CreateIndirect, "Left", ID_BUTTON_2, 449, 160, 80, 80, 0, 0x0, 0 },
-	{ BUTTON_CreateIndirect, "Down", ID_BUTTON_3, 550, 262, 80, 80, 0, 0x0, 0 },
-	{ BUTTON_CreateIndirect, "OK", ID_BUTTON_4, 549, 163, 80, 80, 0, 0x0, 0 },
-	{ BUTTON_CreateIndirect, "Quit", ID_EXIT_BUTTON, 710, 350, 80, 80, 0, 0x0, 0 },
-
+	{ SLIDER_CreateIndirect, "Slider", ID_SLIDER_SPEED, 64, 50, 353, 50, 0, 0x0, 0 },
+	{ SLIDER_CreateIndirect, "Slider", ID_SLIDER_RPM, 64, 150, 353, 50, 0, 0x0, 0 },
+	{ TEXT_CreateIndirect, "Speed", ID_TEXT_SPEED, 12, 67, 80, 20, 0, 0x0, 0 },
+	{ TEXT_CreateIndirect, "RPM", ID_TEXT_RPM, 18, 166, 80, 20, 0, 0x0, 0 },
+	{ RADIO_CreateIndirect, "Radio", ID_RADIO_STATUS, 34, 240, 80, 153, 0, 0x2804, 0 },
+	{ RADIO_CreateIndirect, "RadioPeriodic", ID_RADIO_PERIODIC, 140, 240, 200, 153, 0, 0x2802, 0 },
+	{ BUTTON_CreateIndirect, "Up", ID_BUTTON_UP, 550, 62, 80, 80, 0, 0x0, 0 },
+	{ BUTTON_CreateIndirect, "Right", ID_BUTTON_RIGHT, 652, 160, 80, 80, 0, 0x0, 0 },
+	{ BUTTON_CreateIndirect, "Left", ID_BUTTON_LEFT, 449, 160, 80, 80, 0, 0x0, 0 },
+	{ BUTTON_CreateIndirect, "Down", ID_BUTTON_DOWN, 550, 262, 80, 80, 0, 0x0, 0 },
+	{ BUTTON_CreateIndirect, "OK", ID_BUTTON_OK, 549, 163, 80, 80, 0, 0x0, 0 },
 };
 
 static const GUI_WIDGET_CREATE_INFO _aDialogSPICreate[] = {
-	{ WINDOW_CreateIndirect, "Window", ID_WINDOW_0, 0, 0, 800, 480, 0, 0x0, 0 },
-	{ MULTIEDIT_CreateIndirect, "Multiedit", ID_MULTIEDIT_0, 0, 0, 800, 375, 0, 0x0, 0 },
-	//{ BUTTON_CreateIndirect, "Button", ID_BACK_BUTTON, 0, 0, 80, 80, 0, 0x0, 0 },
-//	{ TEXT_CreateIndirect, "SPI data", ID_TEXT_0, 356, 37, 80, 20, 0, 0x0, 0 },
+	{ WINDOW_CreateIndirect, "Window", ID_WINDOW_SPI, 0, 0, 800, 480, 0, 0x0, 0 },
+	{ MULTIEDIT_CreateIndirect, "Multiedit", ID_MULTIEDIT_SPI, 0, 0, 800, 400, 0, 0x0, 0 },
 };
-/*********************************************************************
-*
-*       Static code
-*
-**********************************************************************
-*/
-
-static void mainCallback(WM_MESSAGE *pMsg)
-{
-	WM_HWIN hItem;
-	int     NCode;
-	int     Id;
-	uint8_t buffer[8];
-	static int x = 0;
-
-	switch (pMsg->MsgId) {
-	case 948:
-		hItem = WM_GetDialogItem(pMsg->hWin, ID_RADIO_0);
-		RADIO_SetValue(hItem, x++);
-		x %= 4;
-		break;
-	case WM_INIT_DIALOG:
-		hItem = WM_GetDialogItem(pMsg->hWin, ID_RADIO_0);
-		RADIO_SetText(hItem, "Lock", 0);
-		RADIO_SetText(hItem, "Off/ACC", 1);
-		RADIO_SetText(hItem, "Run", 2);
-		RADIO_SetText(hItem, "Start", 3);
-		hItem = WM_GetDialogItem(pMsg->hWin, ID_SLIDER_0);
-		SLIDER_SetRange(hItem, 0, 512);
-		hItem = WM_GetDialogItem(pMsg->hWin, ID_SLIDER_1);
-		SLIDER_SetRange(hItem, 0, 65534/4);
-		break;
-
-	case WM_NOTIFY_PARENT:
-		Id    = WM_GetId(pMsg->hWinSrc);
-		NCode = pMsg->Data.v;
-		memset(buffer, 0, 8);
-		switch (Id) {
-		case ID_SLIDER_0: // Notifications sent by 'Slider'
-			switch(NCode) {
-			case WM_NOTIFICATION_VALUE_CHANGED:
-				hItem = WM_GetDialogItem(pMsg->hWin, ID_SLIDER_0);
-				int speed = SLIDER_GetValue(hItem) * 128;
-				periodicData[CAN_ESP_A8][4] = (uint8_t) ((speed >> 8) & 0xFF);
-				periodicData[CAN_ESP_A8][5] = (uint8_t) (speed & 0xFF);
-				break;
-			}
-			break;
-		case ID_SLIDER_1: // Notifications sent by 'Slider'
-			switch(NCode) {
-			case WM_NOTIFICATION_VALUE_CHANGED:
-				hItem = WM_GetDialogItem(pMsg->hWin, ID_SLIDER_1);
-				int rpm = SLIDER_GetValue(hItem);
-				periodicData[CAN_ECM_A1][0] = (uint8_t) ((rpm >> 8) & 0xFF);
-				periodicData[CAN_ECM_A1][1] = (uint8_t) (rpm & 0xFF);
-				break;
-			}
-			break;
-		case ID_RADIO_0: // Notifications sent by 'Radio'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				break;
-			case WM_NOTIFICATION_VALUE_CHANGED:
-				hItem = WM_GetDialogItem(pMsg->hWin, ID_RADIO_0);
-				int val = RADIO_GetValue(hItem);
-				switch (val) {
-				case 1:
-					periodicData[CAN_CBC_PT2][0] = 3;
-					break;
-				case 2:
-					periodicData[CAN_CBC_PT2][0] = 4;
-					break;
-				case 3:
-					periodicData[CAN_CBC_PT2][0] = 5;
-					break;
-				default:
-					periodicData[CAN_CBC_PT2][0] = 0;
-					break;
-				}
-				break;
-			}
-			break;
-		case ID_BUTTON_0: // Notifications sent by 'Up'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				periodicData[CAN_SWS_8][5] = 0x04;
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				periodicData[CAN_SWS_8][5] = 0x00;
-				break;
-			}
-			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
-			break;
-		case ID_BUTTON_1: // Notifications sent by 'Right'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				periodicData[CAN_SWS_8][5] = 0x01;
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				periodicData[CAN_SWS_8][5] = 0x00;
-				break;
-			}
-			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
-			break;
-		case ID_BUTTON_2: // Notifications sent by 'Left'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				periodicData[CAN_SWS_8][4] = 0x10;
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				periodicData[CAN_SWS_8][4] = 0x00;
-				break;
-			}
-			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
-			break;
-		case ID_BUTTON_3: // Notifications sent by 'Down'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				periodicData[CAN_SWS_8][4] = 0x40;
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				periodicData[CAN_SWS_8][4] = 0x00;
-				break;
-			}
-			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
-			break;
-		case ID_BUTTON_4: // Notifications sent by 'OK'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				periodicData[CAN_SWS_8][5] = 0x10;
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				periodicData[CAN_SWS_8][5] = 0x00;
-				break;
-			}
-			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
-			break;
-		case ID_EXIT_BUTTON: // Notifications sent by 'OK'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				GUI_EndDialog(hWin,0);
-				break;
-			}
-			break;
-		}
-		break;
-	default:
-		WM_DefaultProc(pMsg);
-		break;
-	}
-}
 
 static void _cbDialog(WM_MESSAGE * pMsg) {
 	WM_HWIN hItem;
-	int     NCode;
-	int     Id;
 
 	switch (pMsg->MsgId) {
 	case WM_INIT_DIALOG:
-		hItem = WM_GetDialogItem(pMsg->hWin, ID_MULTIPAGE_0);
+		hItem = WM_GetDialogItem(pMsg->hWin, ID_MULTIPAGE_PARENT);
 		SPI_Dialog = GUI_CreateDialogBox(_aDialogSPICreate, GUI_COUNTOF(_aDialogSPICreate), _cbSPIDialog, WM_HBKWIN, 0, 0);
 		MULTIPAGE_AddPage(hItem, SPI_Dialog, "SPI");
 		Main_Dialog = GUI_CreateDialogBox(_aDialogMainCreate, GUI_COUNTOF(_aDialogMainCreate), mainCallback, WM_HBKWIN, 0, 0);
 		MULTIPAGE_AddPage(hItem, Main_Dialog, "Main");
-		MULTIPAGE_AddEmptyPage(hItem, 0, "Second Panel");
-		//
-
 		MULTIPAGE_SelectPage(hItem, 0);
-		break;
-	case WM_NOTIFY_PARENT:
-		Id    = WM_GetId(pMsg->hWinSrc);
-		NCode = pMsg->Data.v;
-		switch (Id) {
-		case ID_MULTIPAGE_0: // Notifications sent by 'Multipage'
-			switch (NCode) {
-			case WM_NOTIFICATION_CLICKED:
-				break;
-			case WM_NOTIFICATION_RELEASED:
-				break;
-			case WM_NOTIFICATION_MOVED_OUT:
-				break;
-			case WM_NOTIFICATION_VALUE_CHANGED:
-				break;
-			}
-			break;
-		}
 		break;
 	default:
 		WM_DefaultProc(pMsg);
@@ -270,38 +56,32 @@ static void _cbDialog(WM_MESSAGE * pMsg) {
 	}
 }
 
-
 WM_MESSAGE msg;
-
+static int quit;
 void periodic_CAN_Timer(void)
 {
-	uint8_t buffer[8];
 	static uint32_t ui32_Millisecond_Count = 0;
 	static char exit = 0;
-	//CBCPT2
-//	memset(buffer, 0, 8);
-//	buffer[0] = (uint8_t) (periodicData[CBC_PT2] & 0xFF);
-//	sendCANMessage(periodicID[CBC_PT2], periodicLength[CBC_PT2], buffer);
-//	//SPEED
-//	memset(buffer, 0, 8);
-//	buffer[4] = (uint8_t) ((periodicData[SPEED] >> 8) & 0xFF);
-//	buffer[5] = (uint8_t) (periodicData[SPEED] & 0xFF);
-//	sendCANMessage(periodicID[SPEED], periodicLength[SPEED], buffer);
-//	//RPM
-//	memset(buffer, 0, 8);
-//	buffer[0] = (uint8_t) ((periodicData[RPM] >> 8) & 0xFF);
-//	buffer[1] = (uint8_t) (periodicData[RPM] & 0xFF);
-//	sendCANMessage(periodicID[RPM], periodicLength[RPM], buffer);
 
-//	WM_SendMessage(SPI_Dialog, &msg);
 	while (1) {
 		osDelay(1);
 		ui32_Millisecond_Count++;
-		if (ui32_Millisecond_Count % 40000 == 0)
+		if (ui32_Millisecond_Count % 40000 == 0 && !quit){
 			exit ^= 1;
+			ui32_Millisecond_Count = 0;
+		}
+
+		if(quit == QUIT_40S_SLEEP) {
+			exit = 0;
+			ui32_Millisecond_Count = 0;
+		}
+
+		if(quit == QUIT_PERIODIC_CAN) {
+			exit = 1;
+		}
+
 		if(!exit) {
 			if ((ui32_Millisecond_Count % 10) == 0) {
-
 				CAN_Send(periodicID[CAN_ECM_A1], periodicLength[CAN_ECM_A1], periodicData[CAN_ECM_A1]);
 				CAN_Send(periodicID[CAN_ECM_A3], periodicLength[CAN_ECM_A3], periodicData[CAN_ECM_A3]);
 				CAN_Send(periodicID[CAN_SCCM_STW_ANGL_STAT], periodicLength[CAN_SCCM_STW_ANGL_STAT], periodicData[CAN_SCCM_STW_ANGL_STAT]);
@@ -392,27 +172,17 @@ void periodic_CAN_Timer(void)
 				CAN_Send(periodicID[CAN_VehCfg8], periodicLength[CAN_VehCfg8], periodicData[CAN_VehCfg8]);
 				CAN_Send(periodicID[CAN_VehCfgCSM1], periodicLength[CAN_VehCfgCSM1], periodicData[CAN_VehCfgCSM1]);
 				CAN_Send(periodicID[CAN_VehCfgCSM2], periodicLength[CAN_VehCfgCSM2], periodicData[CAN_VehCfgCSM2]);
-
 			}    // end if for 2000 msec send periodic
 		}
+		xQueueReceive(queueCAN, &quit, 0);
 	}
+	vQueueDelete(queueCAN);
+	queueCAN = NULL;
+	vTaskDelete(NULL);
 }
 
 void initArrays(void)
 {
-//speed is CAN_ESP_A8
-//	periodicID[SPEED] = 0x79;
-//	periodicLength[SPEED] = 8;
-
-	//RPM is CAN_CBC_PT8
-//	periodicID[RPM] = 0x25;
-//	periodicLength[RPM] = 8;
-
-	//BUTTONS ARE CAN_SWS_8
-
-//	periodicID[CBC_PT2] = 0x77;
-//	periodicLength[CBC_PT2] = 2;
-
 	msg.MsgId = WM_USER;
 
 	periodicLength[CAN_AMB_TEMP_DISP] = 4;
@@ -750,6 +520,7 @@ WM_HWIN openPanels(void)
 	hWin = GUI_CreateDialogBox(_aDialogCreate, GUI_COUNTOF(_aDialogCreate), _cbDialog, WM_HBKWIN, 0, 0);
 	initArrays();
 //	/* Start the TS Timer */
+	queueCAN = xQueueCreate(1,1);
 	osThreadDef(periodic_CAN_Timer, periodic_CAN_Timer, osPriorityNormal, 0, 2 * 1024);
 	osThreadCreate (osThread(periodic_CAN_Timer), NULL);
 
