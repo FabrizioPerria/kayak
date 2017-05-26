@@ -23,28 +23,34 @@ static WM_HWIN hWin;
 const char cmdContinueSPI = CONTINUE;
 const char cmdEndPeriodic = QUIT_40S_SLEEP;
 
-
+uint8_t tmpBuffer[NUM_BYTES];
 uint8_t rxBuffer[NUM_BYTES];
 
 WM_MESSAGE msg;
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
+	wTransferState = TRANSFER_COMPLETE;
+}
 
 void receiveSPIMessage(void)
 {
 	SPI_Resume();
 
 	char quit = 0;
-	memset(rxBuffer, 0, NUM_BYTES);
+	//memset(rxBuffer, 0, NUM_BYTES);
 
 	while(!SPIx_NSS_PIN);
-
-	SPI_Receive(rxBuffer, NUM_BYTES);
 	wTransferState = TRANSFER_WAIT;
+	SPI_Receive(rxBuffer, NUM_BYTES);
+
 	xQueueReceive(queueSPI, &quit, 0);
 	while(!quit){
 		while(wTransferState == TRANSFER_WAIT);
 
-		SPI_Receive(rxBuffer, NUM_BYTES);
 		wTransferState = TRANSFER_WAIT;
+
+		SPI_Receive(rxBuffer, NUM_BYTES);
+
 		//Notify GUI thread
 		msg.MsgId = WM_USER;
 		WM_SendMessage(hWin, &msg);
@@ -55,18 +61,19 @@ void receiveSPIMessage(void)
 	queueSPI = NULL;
 	vTaskDelete(NULL);
 }
+
 uint8_t CAN_Proxy_buffer[8];
 
 void _cbSPIDialog(WM_MESSAGE * pMsg) {
 	WM_HWIN hItem;
-	int     NCode;
-	int     Id;
+
 	unsigned char mesg[NUM_BYTES];
 	static int num_messages = 0;
+	static int sendIt = 0;
 
 	switch (pMsg->MsgId) {
 	case WM_USER:
-		memcpy(mesg, rxBuffer, NUM_BYTES);
+		memcpy(mesg, /*tmpBuffer*/rxBuffer, NUM_BYTES);
 
 		xQueueSend(queueSPI, &cmdContinueSPI, 0);
 		hItem = WM_GetDialogItem(pMsg->hWin, ID_MULTIEDIT_SPI);
@@ -84,7 +91,10 @@ void _cbSPIDialog(WM_MESSAGE * pMsg) {
 			sprintf(idx, "%.2x ", mesg[i]);
 			idx += 3;
 		}
-//		CAN_Send(0x582, 8, CAN_Proxy_buffer);
+		xQueueReceive(queue_debug_CAN_x582, &sendIt, 0);
+		if(sendIt)
+			CAN_Send(0x582, 8, CAN_Proxy_buffer);
+
 		sprintf(idx++,"\n");
 		if (mesg[5] == 0xB1 && mesg[8] != 0x15) {
 			MULTIEDIT_SetBkColor(hItem, 1, GUI_RED);
@@ -100,10 +110,6 @@ void _cbSPIDialog(WM_MESSAGE * pMsg) {
 		osThreadDef(receiveSPIMessage, receiveSPIMessage, osPriorityNormal, 0, 2 * 1024);
 		osThreadCreate (osThread(receiveSPIMessage), NULL);
 
-//#ifdef _USE_BITMAP_PICTURES
-//		hItem = IMAGE_CreateEx(679, 0, 121, 91, pMsg->hWin, WM_CF_SHOW, 0, ID_LOGO_KAYAK);
-//		IMAGE_SetBitmap(hItem, &bmlogo);
-//#endif
 		hItem = WM_GetDialogItem(pMsg->hWin, ID_MULTIEDIT_SPI);
 		MULTIEDIT_SetText(hItem, "");
 		MULTIEDIT_SetAutoScrollV(hItem, 1);

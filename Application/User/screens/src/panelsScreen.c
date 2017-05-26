@@ -521,6 +521,7 @@ WM_HWIN openPanels(void)
 	initArrays();
 //	/* Start the TS Timer */
 	queueCAN = xQueueCreate(1,1);
+	queue_debug_CAN_x582 = xQueueCreate(1,1);
 	osThreadDef(periodic_CAN_Timer, periodic_CAN_Timer, osPriorityNormal, 0, 2 * 1024);
 	osThreadCreate (osThread(periodic_CAN_Timer), NULL);
 

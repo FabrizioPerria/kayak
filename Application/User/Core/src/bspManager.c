@@ -98,6 +98,9 @@ void SPI_Receive(uint8_t* address, int size)
 	HAL_SPI_Receive_DMA(&SpiHandle, address, size);
 //	HAL_SPI_Receive(&SpiHandle, address, size, HAL_MAX_DELAY);
 }
+
+
+
 void checkErrors(int numBytes)
 {
 //	return (hdma_rx.Instance->NDTR == 0);
@@ -189,15 +192,15 @@ GPIO_InitTypeDef  GPIO_InitStruct;
     hdma_rx.Init.Channel             = SPIx_RX_DMA_CHANNEL;
     hdma_rx.Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
     hdma_rx.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    hdma_rx.Init.MemBurst            = DMA_MBURST_INC4;
-    hdma_rx.Init.PeriphBurst         = DMA_PBURST_INC4;
+    hdma_rx.Init.MemBurst            = DMA_MBURST_SINGLE;	///used to be inc4
+    hdma_rx.Init.PeriphBurst         = DMA_PBURST_SINGLE;	///used to be inc4
     hdma_rx.Init.Direction           = DMA_PERIPH_TO_MEMORY;
     hdma_rx.Init.PeriphInc           = DMA_PINC_DISABLE;
     hdma_rx.Init.MemInc              = DMA_MINC_ENABLE;
     hdma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
     hdma_rx.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
     hdma_rx.Init.Mode                = DMA_CIRCULAR;
-    hdma_rx.Init.Priority            = DMA_PRIORITY_HIGH;
+    hdma_rx.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
 
     HAL_DMA_Init(&hdma_rx);
 
@@ -271,13 +274,13 @@ void CAN_Send(uint32_t ID, uint32_t length, uint8_t* message)
 //  wTransferState = TRANSFER_COMPLETE;
 //}
 
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
-	  /* Configure LED1 which is shared with SPI2_SCK signal */
-//	  BSP_LED_Init(LED2);
-//	  /* Turn LED1 on: Transfer in transmission/reception process is complete */
-//	  BSP_LED_On(LED2);
-	wTransferState = TRANSFER_COMPLETE;
-}
+//void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
+//	  /* Configure LED1 which is shared with SPI2_SCK signal */
+////	  BSP_LED_Init(LED2);
+////	  /* Turn LED1 on: Transfer in transmission/reception process is complete */
+////	  BSP_LED_On(LED2);
+//	wTransferState = TRANSFER_COMPLETE;
+//}
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
 	wTransferState = TRANSFER_ERROR;

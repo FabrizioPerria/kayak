@@ -3,8 +3,9 @@ udp discovery routine when ethernet PHY connection is detected
 UDP server to get commands through ethernet and send CAN messages
 WPF windows application to comunicate to kayak
 
+ESP8266 and runtime set of arrays ( maybe wweak pointers??)
+
 SPI on run log screen
-back to 2 buttons on the first screen
 
 exit button from openPanels screen (and disable SPI and CAN)
 

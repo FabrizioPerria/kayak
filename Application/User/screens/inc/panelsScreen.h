@@ -97,6 +97,7 @@ enum {
 
 QueueHandle_t queueSPI;
 QueueHandle_t queueCAN;
+QueueHandle_t queue_debug_CAN_x582;
 
 #define CONTINUE 0
 #define QUIT_40S_SLEEP 1

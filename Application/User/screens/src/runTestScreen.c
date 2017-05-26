@@ -1,6 +1,6 @@
 #include "runTestScreen.h"
 
-#define MAX_LINE 100
+#define MAX_LINE 200
 
 #ifdef _USE_BITMAP_PICTURES
 
@@ -43,7 +43,7 @@ static void sendCanLogThread(void)
 	int cnt = 1;
 	int startTime = 0;
 	int currentTime = 0;
-
+	static int cnt2 = 0;
 	hcan1.pTxMsg = &CAN_message;
 
 	WM_HWIN hProgBar = WM_GetDialogItem(window, ID_LOGPROGBAR);
@@ -83,16 +83,40 @@ static void sendCanLogThread(void)
 			              (int*)&CAN_message.Data[6],
 			              (int*)&CAN_message.Data[7]
 			          );
-
-			if (res < 4 || res > 11)
+			if (res < 4) {
+				char* tmp = strstr(buffer, "ID = ");
+				if(tmp != NULL) {
+					sscanf(tmp, "%*s = %d", &CAN_message.StdId);
+					res = sscanf(buffer, "%d.%*d %*d %*s %*c%*c %*c %d %x %x %x %x %x %x %x %x%*[^\n]",
+						  &currentTime,
+						  (int*)&CAN_message.DLC,
+						  (int*)&CAN_message.Data[0],
+						  (int*)&CAN_message.Data[1],
+						  (int*)&CAN_message.Data[2],
+						  (int*)&CAN_message.Data[3],
+						  (int*)&CAN_message.Data[4],
+						  (int*)&CAN_message.Data[5],
+						  (int*)&CAN_message.Data[6],
+						  (int*)&CAN_message.Data[7]
+					  ) + 1;
+				}
+			}
+			if (res < 4 || res > 11) {
 				continue;
+			}
 
-			if (startTime != 0)
-				HAL_Delay(1);
+
+			vTaskDelay(100);
 
 			startTime = currentTime;
 
-			HAL_CAN_Transmit(&hcan1, 1000);
+			if (HAL_CAN_Transmit(&hcan1, 100) == HAL_OK) {
+				BSP_LED_Off(LED1);
+				BSP_LED_On(LED2);
+			} else {
+				BSP_LED_Off(LED2);
+				BSP_LED_On(LED1);
+			}
 			xQueueReceive(queue, &quit, 0);
 		}
 	}

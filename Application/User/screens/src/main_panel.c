@@ -82,10 +82,12 @@ void mainCallback(WM_MESSAGE *pMsg)
 					int val = RADIO_GetValue(hItem);
 					switch (val) {
 					case 0:
-						xQueueSend(queueCAN, &cmdStopPeriodic, 0);
+						xQueueSend(queueCAN, &cmdContinue, 0);
+						xQueueSend(queue_debug_CAN_x582, &cmdContinue, 0);
 						break;
 					case 1:
 						xQueueSend(queueCAN, &cmdStopCANSend, 0);
+						xQueueSend(queue_debug_CAN_x582, &cmdStopCANSend, 0);
 						break;
 					}
 					break;
@@ -146,6 +148,7 @@ void mainCallback(WM_MESSAGE *pMsg)
 			}
 			CAN_Send(periodicID[CAN_SWS_8], periodicLength[CAN_SWS_8], periodicData[CAN_SWS_8]);
 			break;
+		}
 		break;
 	default:
 		WM_DefaultProc(pMsg);
