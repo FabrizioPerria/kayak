@@ -66,8 +66,8 @@ static void sendCanLogThread(void)
 			cnt += 50;	//average line length in the file
 
 			memset(buffer,0,MAX_LINE);
-			f_gets(buffer, MAX_LINE, &logFile);
-
+			//f_gets(buffer, MAX_LINE, &logFile);
+			//f_read(&logFile, buffer, 100, NULL);
 			CAN_message.IDE = CAN_ID_STD;
 
 			int res = sscanf(buffer, "%d.%*d %*d %x %*c%*c %*c %d %x %x %x %x %x %x %x %x%*[^\n]",
@@ -104,9 +104,6 @@ static void sendCanLogThread(void)
 			if (res < 4 || res > 11) {
 				continue;
 			}
-
-
-			vTaskDelay(100);
 
 			startTime = currentTime;
 

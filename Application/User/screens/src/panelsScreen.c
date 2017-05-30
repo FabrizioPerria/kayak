@@ -62,13 +62,16 @@ void periodic_CAN_Timer(void)
 {
 	static uint32_t ui32_Millisecond_Count = 0;
 	static char exit = 0;
-
+	static uint32_t counter_on = 0;
 	while (1) {
 		osDelay(1);
 		ui32_Millisecond_Count++;
-		if (ui32_Millisecond_Count % 40000 == 0 && !quit){
-			exit ^= 1;
-			ui32_Millisecond_Count = 0;
+		if (ui32_Millisecond_Count % 5000 == 0 && !quit){
+			if (exit || (++counter_on == 4 && !exit)) {
+				exit ^= 1;
+				ui32_Millisecond_Count = 0;
+				counter_on = 0;
+			}
 		}
 
 		if(quit == QUIT_40S_SLEEP) {

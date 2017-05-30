@@ -94,6 +94,8 @@ void _cbSPIDialog(WM_MESSAGE * pMsg) {
 		xQueueReceive(queue_debug_CAN_x582, &sendIt, 0);
 		if(sendIt)
 			CAN_Send(0x582, 8, CAN_Proxy_buffer);
+		else
+			memset(CAN_Proxy_buffer,0,8);
 
 		sprintf(idx++,"\n");
 		if (mesg[5] == 0xB1 && mesg[8] != 0x15) {
