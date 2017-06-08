@@ -38,12 +38,19 @@ const char closeCmd = 1;
 static QueueHandle_t queue;
 CanTxMsgTypeDef CAN_message;
 
+typedef struct CAN_list {
+	CanTxMsgTypeDef message;
+	struct CAN_list* next;
+} CAN_List;
+
 static void sendCanLogThread(void)
 {
 	int cnt = 1;
 	int startTime = 0;
 	int currentTime = 0;
 	static int cnt2 = 0;
+	CAN_List* head = NULL;
+	CAN_List* index = NULL;
 	hcan1.pTxMsg = &CAN_message;
 
 	WM_HWIN hProgBar = WM_GetDialogItem(window, ID_LOGPROGBAR);
@@ -60,52 +67,66 @@ static void sendCanLogThread(void)
 		int fileSize = logFile.fsize;
 		char quit = 0;
 		xQueueReceive(queue, &quit, 0);
-		while (!f_eof(&logFile) && !quit) {
-
-			PROGBAR_SetValue(hProgBar, cnt * 100 / fileSize);
-			cnt += 50;	//average line length in the file
-
+		while(!f_eof(&logFile)){
+			CAN_List* tmpNode = (CAN_List*) malloc(sizeof(CAN_List));
 			memset(buffer,0,MAX_LINE);
-			//f_gets(buffer, MAX_LINE, &logFile);
-			//f_read(&logFile, buffer, 100, NULL);
+			f_gets(buffer, MAX_LINE, &logFile);
 			CAN_message.IDE = CAN_ID_STD;
 
 			int res = sscanf(buffer, "%d.%*d %*d %x %*c%*c %*c %d %x %x %x %x %x %x %x %x%*[^\n]",
 			              &currentTime,
-			              (int*)&CAN_message.StdId,
-			              (int*)&CAN_message.DLC,
-			              (int*)&CAN_message.Data[0],
-			              (int*)&CAN_message.Data[1],
-			              (int*)&CAN_message.Data[2],
-			              (int*)&CAN_message.Data[3],
-			              (int*)&CAN_message.Data[4],
-			              (int*)&CAN_message.Data[5],
-			              (int*)&CAN_message.Data[6],
-			              (int*)&CAN_message.Data[7]
+			              (int*)&tmpNode->message.StdId,
+			              (int*)&tmpNode->message.DLC,
+			              (int*)&tmpNode->message.Data[0],
+			              (int*)&tmpNode->message.Data[1],
+			              (int*)&tmpNode->message.Data[2],
+			              (int*)&tmpNode->message.Data[3],
+			              (int*)&tmpNode->message.Data[4],
+			              (int*)&tmpNode->message.Data[5],
+			              (int*)&tmpNode->message.Data[6],
+			              (int*)&tmpNode->message.Data[7]
 			          );
 			if (res < 4) {
 				char* tmp = strstr(buffer, "ID = ");
 				if(tmp != NULL) {
-					sscanf(tmp, "%*s = %d", &CAN_message.StdId);
+					sscanf(tmp, "%*s = %d", &tmpNode->message.StdId);
 					res = sscanf(buffer, "%d.%*d %*d %*s %*c%*c %*c %d %x %x %x %x %x %x %x %x%*[^\n]",
 						  &currentTime,
-						  (int*)&CAN_message.DLC,
-						  (int*)&CAN_message.Data[0],
-						  (int*)&CAN_message.Data[1],
-						  (int*)&CAN_message.Data[2],
-						  (int*)&CAN_message.Data[3],
-						  (int*)&CAN_message.Data[4],
-						  (int*)&CAN_message.Data[5],
-						  (int*)&CAN_message.Data[6],
-						  (int*)&CAN_message.Data[7]
+						  (int*)&tmpNode->message.DLC,
+						  (int*)&tmpNode->message.Data[0],
+						  (int*)&tmpNode->message.Data[1],
+						  (int*)&tmpNode->message.Data[2],
+						  (int*)&tmpNode->message.Data[3],
+						  (int*)&tmpNode->message.Data[4],
+						  (int*)&tmpNode->message.Data[5],
+						  (int*)&tmpNode->message.Data[6],
+						  (int*)&tmpNode->message.Data[7]
 					  ) + 1;
 				}
 			}
 			if (res < 4 || res > 11) {
+				free(tmpNode);
 				continue;
 			}
+			tmpNode->next = NULL;
 
-			startTime = currentTime;
+			if(head == NULL){
+				head = tmpNode;
+				index = head;
+			} else {
+				index->next = tmpNode;
+				index = index->next;
+			}
+		}
+
+		index = head;
+
+		while (index != NULL && !quit) {
+
+			PROGBAR_SetValue(hProgBar, cnt * 100 / fileSize);
+			cnt += 50;	//average line length in the file
+
+			memcpy(&CAN_message, &index->message, sizeof(CanTxMsgTypeDef));
 
 			if (HAL_CAN_Transmit(&hcan1, 100) == HAL_OK) {
 				BSP_LED_Off(LED1);
@@ -114,9 +135,17 @@ static void sendCanLogThread(void)
 				BSP_LED_Off(LED2);
 				BSP_LED_On(LED1);
 			}
+			index = index->next;
 			xQueueReceive(queue, &quit, 0);
 		}
+		index = head;
+		while(index != NULL){
+			CAN_List *tmp = index;
+			index = index->next;
+			free(tmp);
+		}
 	}
+
 	vQueueDelete(queue);
 	queue = NULL;
 	f_close(&logFile);
